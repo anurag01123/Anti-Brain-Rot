@@ -1,6 +1,6 @@
 {
   "name": "Anti Brain Rot",
-  "description": "Block apps after a daily limit and require calling penalty contacts to unblock.",
+  "description": "Block apps after a daily limit and require calling penalty contacts to unblock. Created by Anurag. v1.0.4",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

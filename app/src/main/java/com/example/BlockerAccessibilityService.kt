@@ -103,12 +103,23 @@ class BlockerAccessibilityService : AccessibilityService() {
             }
         }
         
+        
+        val calBonus = Calendar.getInstance()
+        calBonus.set(Calendar.HOUR_OF_DAY, 0)
+        calBonus.set(Calendar.MINUTE, 0)
+        calBonus.set(Calendar.SECOND, 0)
+        calBonus.set(Calendar.MILLISECOND, 0)
+        
+        val bonusKey = "bonus_time_${packageName}_${calBonus.timeInMillis}"
+        val bonusMillis = prefs.getLong(bonusKey, 0L)
+        
         val limitMillis = trackedApp.dailyLimitMinutes * 60 * 1000L
         val currentUsage = UsageUtils.getUsageTimeForApp(applicationContext, packageName)
         
-        if (currentUsage > limitMillis) {
+        if (currentUsage > (limitMillis + bonusMillis)) {
             shouldBlock = true
         }
+
         
         if (shouldBlock) {
             val contacts = repository.getAllContactsSync()

@@ -53,11 +53,15 @@ class BlockActivity : ComponentActivity() {
         
         val blockedAppName = intent.getStringExtra("BLOCKED_APP") ?: "Target App"
         val blockReason = intent.getStringExtra("BLOCK_REASON")
+        val packageName = intent.getStringExtra("PACKAGE_NAME") ?: ""
+        val limitMinutes = intent.getIntExtra("LIMIT_MINUTES", 0)
         val db = AppDatabase.getDatabase(applicationContext)
         val repository = AppRepository(db.appDao())
         
         setContent {
-            MyApplicationTheme {
+            val prefs = applicationContext.getSharedPreferences("block_settings", android.content.Context.MODE_PRIVATE)
+                val isDarkMode = prefs.getBoolean("dark_mode", false)
+                MyApplicationTheme(darkTheme = isDarkMode) {
                 val context = LocalContext.current
                 
                 BackHandler(enabled = true) {
@@ -86,7 +90,7 @@ class BlockActivity : ComponentActivity() {
                                     
                                     val cursor = context.contentResolver.query(
                                         CallLog.Calls.CONTENT_URI,
-                                        arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.TYPE),
+                                        arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.TYPE, CallLog.Calls.DURATION),
                                         "${CallLog.Calls.DATE} >= ?",
                                         arrayOf(startOfDay.toString()),
                                         "${CallLog.Calls.DATE} DESC"
@@ -96,13 +100,15 @@ class BlockActivity : ComponentActivity() {
                                         val numIndex = c.getColumnIndex(CallLog.Calls.NUMBER)
                                         val dateIndex = c.getColumnIndex(CallLog.Calls.DATE)
                                         val typeIndex = c.getColumnIndex(CallLog.Calls.TYPE)
+                                        val durationIndex = c.getColumnIndex(CallLog.Calls.DURATION)
                                         
                                         val calledNumbers = mutableMapOf<String, Long>()
                                         while (c.moveToNext()) {
                                             val number = c.getString(numIndex)
                                             val date = c.getLong(dateIndex)
                                             val type = c.getInt(typeIndex)
-                                            if (type == CallLog.Calls.OUTGOING_TYPE) {
+                                            val duration = c.getLong(durationIndex)
+                                            if (type == CallLog.Calls.OUTGOING_TYPE && duration >= 60) {
                                                 calledNumbers[number] = date
                                             }
                                         }
@@ -357,7 +363,13 @@ class BlockActivity : ComponentActivity() {
                                 }
                                 
                                 Button(
-                                    onClick = { finish() },
+                                    onClick = { 
+                                        val bonusKey = "bonus_time_${packageName}_${startOfDay}"
+                                        val currentBonus = prefs.getLong(bonusKey, 0L)
+                                        val additionalBonus = limitMinutes * 60 * 1000L
+                                        prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
+                                        finish() 
+                                    },
                                     enabled = allCleared,
                                     modifier = Modifier.weight(1f).height(56.dp),
                                     shape = RoundedCornerShape(28.dp),

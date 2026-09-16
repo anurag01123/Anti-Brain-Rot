@@ -430,6 +430,17 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
                 }
             }
         }
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                "Created by Anurag • v1.0.4", 
+                style = MaterialTheme.typography.labelSmall, 
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(100.dp))
+        }
     }
 }
 
