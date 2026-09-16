@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.callpenalty.kzwxyz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.0.4"
+    versionCode = 7
+    versionName = "2.0.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
