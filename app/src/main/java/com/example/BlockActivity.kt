@@ -1,5 +1,13 @@
 package com.example
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.provider.CallLog
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import android.Manifest
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -63,6 +71,63 @@ class BlockActivity : ComponentActivity() {
                 
                 var timeRemaining by remember { mutableStateOf("00:00:00") }
                 
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                    val calendar = Calendar.getInstance()
+                                    calendar.set(Calendar.HOUR_OF_DAY, 0)
+                                    calendar.set(Calendar.MINUTE, 0)
+                                    calendar.set(Calendar.SECOND, 0)
+                                    calendar.set(Calendar.MILLISECOND, 0)
+                                    val startOfDay = calendar.timeInMillis
+                                    
+                                    val cursor = context.contentResolver.query(
+                                        CallLog.Calls.CONTENT_URI,
+                                        arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.TYPE),
+                                        "${CallLog.Calls.DATE} >= ?",
+                                        arrayOf(startOfDay.toString()),
+                                        "${CallLog.Calls.DATE} DESC"
+                                    )
+                                    
+                                    cursor?.use { c ->
+                                        val numIndex = c.getColumnIndex(CallLog.Calls.NUMBER)
+                                        val dateIndex = c.getColumnIndex(CallLog.Calls.DATE)
+                                        val typeIndex = c.getColumnIndex(CallLog.Calls.TYPE)
+                                        
+                                        val calledNumbers = mutableMapOf<String, Long>()
+                                        while (c.moveToNext()) {
+                                            val number = c.getString(numIndex)
+                                            val date = c.getLong(dateIndex)
+                                            val type = c.getInt(typeIndex)
+                                            if (type == CallLog.Calls.OUTGOING_TYPE) {
+                                                calledNumbers[number] = date
+                                            }
+                                        }
+                                        
+                                        val currentContacts = repository.getAllContactsSync()
+                                        for (contact in currentContacts) {
+                                            if (contact.lastCalledTimestamp < startOfDay) {
+                                                val match = calledNumbers.entries.find { 
+                                                    android.telephony.PhoneNumberUtils.compare(it.key, contact.phoneNumber) ||
+                                                    (it.key.replace(Regex("[^0-9]"), "").takeLast(7) == contact.phoneNumber.replace(Regex("[^0-9]"), "").takeLast(7) && contact.phoneNumber.replace(Regex("[^0-9]"), "").length >= 7)
+                                                }
+                                                if (match != null) {
+                                                    repository.markContactCalled(contact.phoneNumber, match.value)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+
                 LaunchedEffect(Unit) {
                     while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                         val cal = Calendar.getInstance()
