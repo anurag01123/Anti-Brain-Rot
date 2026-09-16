@@ -3,23 +3,9 @@ import re
 with open("app/src/main/java/com/example/MainActivity.kt", "r") as f:
     content = f.read()
 
-pattern_topbar = re.compile(r'topBar = \{\s+val isDarkMode.*?\},(\s+)bottomBar = \{', re.DOTALL)
-
-new_topbar = """topBar = {
-            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            
-            AnimatedVisibility(visible = selectedTab == 0) {
-                // Glass effect container
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.Transparent,
-                    shadowElevation = 0.dp,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
+# I will replace the Box containing the Canvas with a call to CloudsAndBirds()
+# Let's find the exact block for the top bar canvas
+old_topbar = """                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                         val primaryColor = MaterialTheme.colorScheme.primary
                         val secondaryColor = MaterialTheme.colorScheme.secondary
                         androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
@@ -55,56 +41,21 @@ new_topbar = """topBar = {
                                 lineTo(size.width * 0.14f, size.height)
                                 close()
                             }
-                            drawPath(path = treePath, color = secondaryColor.copy(alpha = 0.3f))
-                        }
-                        Row(
-                            modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(androidx.compose.material.icons.Icons.Rounded.Star, contentDescription = "Goal", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Your Goal", 
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "Stay focused\\nand productive", 
-                                    fontWeight = FontWeight.ExtraBold,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            drawPath(path = treePath, color = secondaryColor.copy(alpha = 0.8f))
+                            
+                            val treePath2 = androidx.compose.ui.graphics.Path().apply {
+                                moveTo(size.width * 0.2f, size.height)
+                                lineTo(size.width * 0.23f, size.height * 0.5f)
+                                lineTo(size.width * 0.26f, size.height)
+                                close()
                             }
-                            Surface(
-                                modifier = Modifier.clickable { viewModel.setDarkMode(!isDarkMode) }.clip(RoundedCornerShape(16.dp)),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        if (isDarkMode) "Light Theme" else "Dark Theme", 
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },\\1bottomBar = {"""
+                            drawPath(path = treePath2, color = secondaryColor.copy(alpha = 0.8f))
+                        }"""
 
-new_content, count = pattern_topbar.subn(new_topbar, content)
-print(f"Replaced {count} instances of topBar.")
+new_topbar = """                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
+                        com.example.ui.components.CloudsAndBirds(modifier = Modifier.matchParentSize())"""
 
-if count > 0:
-    with open("app/src/main/java/com/example/MainActivity.kt", "w") as f:
-        f.write(new_content)
+content = content.replace(old_topbar, new_topbar)
+
+with open("app/src/main/java/com/example/MainActivity.kt", "w") as f:
+    f.write(content)

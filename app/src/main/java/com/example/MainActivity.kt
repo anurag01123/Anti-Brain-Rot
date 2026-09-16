@@ -1,5 +1,9 @@
 package com.example
 
+import dev.chrisbanes.haze.haze
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
@@ -14,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -147,23 +152,22 @@ fun MainScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Apps to Block", "Penalty Contacts", "Insights")
     val icons = listOf(Icons.Rounded.Lock, Icons.Rounded.Call, Icons.Rounded.DateRange)
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
 
     Scaffold(
+        modifier = Modifier.haze(state = hazeState),
         topBar = {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             
             AnimatedVisibility(visible = selectedTab == 0) {
                 // Glass effect container
-                Surface(
+                com.example.ui.components.GlassSurface(
+                    hazeState = hazeState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.Transparent,
-                    shadowElevation = 0.dp,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         val primaryColor = MaterialTheme.colorScheme.primary
                         val secondaryColor = MaterialTheme.colorScheme.secondary
                         androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
@@ -247,24 +251,63 @@ and productive""",
             }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
             ) {
-                tabs.forEachIndexed { index, title ->
-                    NavigationBarItem(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        icon = { Icon(icons[index], contentDescription = title) },
-                        label = { Text(title) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.surface,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.onSurface,
-                            unselectedIconColor = MaterialTheme.colorScheme.outline,
-                            unselectedTextColor = MaterialTheme.colorScheme.outline
-                        )
-                    )
+                com.example.ui.components.GlassSurface(
+                    hazeState = hazeState,
+                    shape = RoundedCornerShape(32.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedTab == index
+                            val backgroundColor by androidx.compose.animation.animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                animationSpec = com.example.ui.utils.MotionTokens.standard()
+                            )
+                            val contentColor by androidx.compose.animation.animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                animationSpec = com.example.ui.utils.MotionTokens.standard()
+                            )
+                            val view = androidx.compose.ui.platform.LocalView.current
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(backgroundColor)
+                                    .clickable { 
+                                        com.example.ui.utils.Haptics.playLightTick(view)
+                                        selectedTab = index 
+                                    }
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = icons[index],
+                                        contentDescription = title,
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    androidx.compose.animation.AnimatedVisibility(visible = isSelected) {
+                                        Text(
+                                            text = title,
+                                            color = contentColor,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -332,36 +375,55 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
             Text("Weekly Trend", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(8.dp))
             
-            Card(
+            com.example.ui.components.GlassSurface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(24.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    val maxVal = maxOf(1, stats.take(7).maxOfOrNull { it.urgesInterrupted + it.blockOccurrences } ?: 1)
-                    
-                    for (i in 6 downTo 0) {
-                        val dayStat = stats.find { it.dateEpochDay == today - i }
-                        val valSum = (dayStat?.urgesInterrupted ?: 0) + (dayStat?.blockOccurrences ?: 0)
-                        val heightFraction = valSum.toFloat() / maxVal.toFloat()
+                if (stats.isEmpty() || stats.all { it.urgesInterrupted == 0 && it.blockOccurrences == 0 }) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        com.example.ui.components.GrowingPlant(modifier = Modifier.size(80.dp), progress = 0.5f)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No friction history yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        val maxVal = maxOf(1, stats.take(7).maxOfOrNull { it.urgesInterrupted + it.blockOccurrences } ?: 1)
                         
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                            Box(
-                                modifier = Modifier
-                                    .width(24.dp)
-                                    .fillMaxHeight(heightFraction.coerceAtLeast(0.05f))
-                                    .background(if (i == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                        for (i in 6 downTo 0) {
+                            val dayStat = stats.find { it.dateEpochDay == today - i }
+                            val valSum = (dayStat?.urgesInterrupted ?: 0) + (dayStat?.blockOccurrences ?: 0)
+                            val targetHeight = valSum.toFloat() / maxVal.toFloat()
+                            val heightFraction by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = targetHeight.coerceAtLeast(0.05f),
+                                animationSpec = com.example.ui.utils.MotionTokens.standard()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = LocalDate.ofEpochDay(today - i).dayOfWeek.name.take(1),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
+                            
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(24.dp)
+                                        .fillMaxHeight(heightFraction)
+                                        .background(if (i == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = LocalDate.ofEpochDay(today - i).dayOfWeek.name.take(1),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
                         }
                     }
                 }
@@ -374,7 +436,7 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
 @Composable
 fun TrackedAppsScreen(viewModel: MainViewModel) {
     val trackedApps by viewModel.allTrackedApps.collectAsStateWithLifecycle()
-    val appUsages by viewModel.appUsages.collectAsStateWithLifecycle()
+    val appUsages = viewModel.appUsages
     val installedApps by viewModel.installedApps.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -386,11 +448,15 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
             var hasPermission by remember { mutableStateOf(UsageUtils.hasUsageStatsPermission(context)) }
             
             // Recheck permission when returning to this screen
-            LaunchedEffect(Unit) {
-                while (true) {
-                    hasPermission = UsageUtils.hasUsageStatsPermission(context)
-                    kotlinx.coroutines.delay(1000)
+            val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+            androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        hasPermission = UsageUtils.hasUsageStatsPermission(context)
+                    }
                 }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
             AnimatedVisibility(visible = !hasPermission) {
@@ -612,11 +678,16 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                         }
                     } else {
                         items(trackedApps, key = { it.packageName }) { app ->
+                            val usage = appUsages[app.packageName] ?: 0L
+                            val onDelete = remember(app.packageName) { { viewModel.removeTrackedApp(app.packageName) } }
+                            val onToggle = remember(app.packageName) {
+                                { isActive: Boolean -> viewModel.toggleAppActive(app.packageName, isActive) }
+                            }
                             TrackedAppCard(
                                 app = app,
-                                usageMs = appUsages[app.packageName] ?: 0L,
-                                onDelete = { viewModel.removeTrackedApp(app.packageName) },
-                                onToggle = { isActive -> viewModel.toggleAppActive(app.packageName, isActive) },
+                                usageMs = usage,
+                                onDelete = onDelete,
+                                onToggle = onToggle,
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -637,7 +708,20 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
             containerColor = MaterialTheme.colorScheme.surface,
             modifier = Modifier.fillMaxHeight(0.9f)
         ) {
-            AnimatedContent(targetState = step, label = "step_transition") { targetStep ->
+            androidx.activity.compose.BackHandler(enabled = step == 2) { step = 1 }
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (androidx.compose.animation.slideInHorizontally { width -> width } + androidx.compose.animation.fadeIn()).togetherWith(androidx.compose.animation.slideOutHorizontally { width -> -width } + androidx.compose.animation.fadeOut())
+                    } else {
+                        (androidx.compose.animation.slideInHorizontally { width -> -width } + androidx.compose.animation.fadeIn()).togetherWith(androidx.compose.animation.slideOutHorizontally { width -> width } + androidx.compose.animation.fadeOut())
+                    }.using(
+                        androidx.compose.animation.SizeTransform(clip = false)
+                    )
+                },
+                label = "step_transition"
+            ) { targetStep ->
                 if (targetStep == 1) {
                     var searchQuery by remember { mutableStateOf("") }
                     val filteredApps = installedApps.filter { it.appName.contains(searchQuery, ignoreCase = true) }
@@ -689,14 +773,16 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                         }
                     }
                                     val currentIcon = iconBitmap
-                                    if (currentIcon != null) {
-                                        Image(
-                                            bitmap = currentIcon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(48.dp)
-                                        )
-                                    } else {
-                                        Icon(Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                                    androidx.compose.animation.Crossfade(targetState = currentIcon != null, label = "icon_load") { isLoaded ->
+                                        if (isLoaded && currentIcon != null) {
+                                            Image(
+                                                bitmap = currentIcon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                                            )
+                                        } else {
+                                            com.example.ui.components.ShimmerPlaceholder(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)))
+                                        }
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
@@ -768,26 +854,40 @@ fun TrackedAppCard(app: TrackedApp, usageMs: Long, onDelete: () -> Unit, onToggl
     val context = LocalContext.current
     
     val limitMs = app.dailyLimitMinutes * 60 * 1000L
-    val progress = if (limitMs > 0) (usageMs.toFloat() / limitMs).coerceIn(0f, 1f) else 0f
+    val targetProgress = if (limitMs > 0) (usageMs.toFloat() / limitMs).coerceIn(0f, 1f) else 0f
     val currentUsageMins = usageMs / (1000 * 60)
     
-    val color = when {
-        progress >= 1f -> MaterialTheme.colorScheme.error
-        progress >= 0.8f -> Color(0xFFF59E0B) // Amber
+    val progress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+        ),
+        label = "progress"
+    )
+    
+    val targetColor = when {
+        targetProgress >= 1f -> MaterialTheme.colorScheme.error
+        targetProgress >= 0.8f -> Color(0xFFF59E0B) // Amber
         else -> MaterialTheme.colorScheme.primary
     }
+    val color by androidx.compose.animation.animateColorAsState(
+        targetValue = targetColor,
+        animationSpec = androidx.compose.animation.core.spring(
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+        ),
+        label = "color"
+    )
     
     val statusText = when {
-        progress >= 1f -> "Locked 😤"
-        progress >= 0.8f -> "Approaching 😅"
-        else -> "Accessible 🤩"
+        targetProgress >= 1f -> "Locked"
+        targetProgress >= 0.8f -> "Approaching"
+        else -> "Accessible"
     }
 
-    Card(
+    com.example.ui.components.GlassSurface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(28.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -999,6 +1099,13 @@ fun ContactsScreen(viewModel: MainViewModel) {
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(contacts, key = { it.phoneNumber }) { contact ->
+                            val view = androidx.compose.ui.platform.LocalView.current
+                            val onRemove = remember(contact.phoneNumber) {
+                                {
+                                    com.example.ui.utils.Haptics.playWarning(view)
+                                    viewModel.removeContact(contact.phoneNumber)
+                                }
+                            }
                             Card(
                                 modifier = Modifier.fillMaxWidth().animateItem(),
                                 shape = RoundedCornerShape(28.dp),
@@ -1012,7 +1119,6 @@ fun ContactsScreen(viewModel: MainViewModel) {
                                             modifier = Modifier.size(52.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(26.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            // Vector animal avatar (simple bear/dog silhouette)
                                             val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
                                             androidx.compose.foundation.Canvas(modifier = Modifier.size(24.dp)) {
                                                 drawCircle(color = onPrimaryContainer, radius = size.width * 0.4f, center = androidx.compose.ui.geometry.Offset(size.width * 0.5f, size.height * 0.5f))
@@ -1024,7 +1130,7 @@ fun ContactsScreen(viewModel: MainViewModel) {
                                     headlineContent = { Text(contact.contactName, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) },
                                     supportingContent = { Text(contact.phoneNumber, color = MaterialTheme.colorScheme.outline) },
                                     trailingContent = {
-                                        IconButton(onClick = { viewModel.removeContact(contact.phoneNumber) }, modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), RoundedCornerShape(12.dp))) {
+                                        IconButton(onClick = onRemove, modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), RoundedCornerShape(12.dp))) {
                                             Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
                                         }
                                     }
@@ -1048,23 +1154,33 @@ fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Str
         // Nature Vector Illustration
         val primary = MaterialTheme.colorScheme.primary
         val secondary = MaterialTheme.colorScheme.secondary
+        val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "sway")
+        val sway by infiniteTransition.animateFloat(
+            initialValue = -5f,
+            targetValue = 5f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                animation = androidx.compose.animation.core.tween(3000, easing = androidx.compose.animation.core.LinearEasing),
+                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+            ),
+            label = "tree_sway"
+        )
         androidx.compose.foundation.Canvas(modifier = Modifier.size(100.dp)) {
-            // Tree
             val treePath = androidx.compose.ui.graphics.Path().apply {
                 moveTo(size.width * 0.4f, size.height * 0.9f)
                 lineTo(size.width * 0.45f, size.height * 0.5f)
                 lineTo(size.width * 0.2f, size.height * 0.5f)
-                lineTo(size.width * 0.5f, size.height * 0.1f)
+                lineTo(size.width * 0.5f + sway, size.height * 0.1f)
                 lineTo(size.width * 0.8f, size.height * 0.5f)
                 lineTo(size.width * 0.55f, size.height * 0.5f)
                 lineTo(size.width * 0.6f, size.height * 0.9f)
                 close()
             }
             drawPath(path = treePath, color = primary.copy(alpha = 0.6f))
-            // Cloud
-            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.15f, center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.25f))
-            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.2f, center = androidx.compose.ui.geometry.Offset(size.width * 0.4f, size.height * 0.2f))
-            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.15f, center = androidx.compose.ui.geometry.Offset(size.width * 0.6f, size.height * 0.25f))
+            
+            val cloudOffset = sway * 0.5f
+            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.15f, center = androidx.compose.ui.geometry.Offset(size.width * 0.2f + cloudOffset, size.height * 0.25f))
+            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.2f, center = androidx.compose.ui.geometry.Offset(size.width * 0.4f + cloudOffset, size.height * 0.2f))
+            drawCircle(color = secondary.copy(alpha = 0.4f), radius = size.width * 0.15f, center = androidx.compose.ui.geometry.Offset(size.width * 0.6f + cloudOffset, size.height * 0.25f))
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(

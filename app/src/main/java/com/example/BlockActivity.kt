@@ -325,34 +325,10 @@ class BlockActivity : ComponentActivity() {
                         contentAlignment = Alignment.Center
                     ) {
                         val primaryColor = MaterialTheme.colorScheme.primary
-                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                            // Simple plant drawing
-                            val plantPath = androidx.compose.ui.graphics.Path().apply {
-                                moveTo(size.width * 0.5f, size.height)
-                                quadraticTo(size.width * 0.5f, size.height * 0.6f, size.width * 0.2f, size.height * 0.3f)
-                                quadraticTo(size.width * 0.5f, size.height * 0.4f, size.width * 0.5f, size.height * 0.7f)
-                                
-                                moveTo(size.width * 0.5f, size.height * 0.8f)
-                                quadraticTo(size.width * 0.5f, size.height * 0.5f, size.width * 0.8f, size.height * 0.2f)
-                                quadraticTo(size.width * 0.5f, size.height * 0.3f, size.width * 0.5f, size.height * 0.6f)
-                                
-                                moveTo(size.width * 0.5f, size.height)
-                                lineTo(size.width * 0.5f, size.height * 0.2f)
-                            }
-                            drawPath(plantPath, color = primaryColor.copy(alpha = alpha), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-                        }
+                        com.example.ui.components.GrowingPlant(modifier = Modifier.fillMaxSize(), progress = 1f)
                     }
                 }
             }
         }
-    }
-    
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        val intent = Intent(Intent.ACTION_MAIN)
-        intent.addCategory(Intent.CATEGORY_HOME)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        startActivity(intent)
-        // Removed finish() to prevent bypass
     }
 }

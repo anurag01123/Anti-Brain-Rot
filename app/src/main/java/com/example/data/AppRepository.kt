@@ -26,11 +26,9 @@ class AppRepository(private val appDao: AppDao) {
     
     suspend fun markContactCalled(phoneNumber: String, timestamp: Long) {
         val allContacts = appDao.getAllContactsSync()
-        // Phones formats can differ, so let's do a loose matching or clean the number
-        val cleanTarget = phoneNumber.replace(Regex("[^0-9+]"), "")
         val contactToUpdate = allContacts.find { 
-            val cleanDbNum = it.phoneNumber.replace(Regex("[^0-9+]"), "")
-            cleanDbNum == cleanTarget || cleanDbNum.endsWith(cleanTarget) || cleanTarget.endsWith(cleanDbNum)
+            android.telephony.PhoneNumberUtils.compare(it.phoneNumber, phoneNumber) || 
+            (it.phoneNumber.replace(Regex("[^0-9]"), "").takeLast(7) == phoneNumber.replace(Regex("[^0-9]"), "").takeLast(7) && phoneNumber.replace(Regex("[^0-9]"), "").length >= 7)
         }
         if (contactToUpdate != null) {
             appDao.updateContactCallTime(contactToUpdate.phoneNumber, timestamp)

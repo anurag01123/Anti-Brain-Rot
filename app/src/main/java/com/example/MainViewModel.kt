@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs: SharedPreferences = application.getSharedPreferences("block_settings", Context.MODE_PRIVATE)
@@ -83,8 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val installedApps: StateFlow<List<AppInfo>> = _installedApps
     
-    private val _appUsages = MutableStateFlow<Map<String, Long>>(emptyMap())
-    val appUsages: StateFlow<Map<String, Long>> = _appUsages
+    val appUsages: androidx.compose.runtime.snapshots.SnapshotStateMap<String, Long> = androidx.compose.runtime.mutableStateMapOf()
 
     init {
         val db = AppDatabase.getDatabase(application)
@@ -110,18 +110,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         
         loadInstalledApps()
 
+        
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            while(true) {
-                val apps = allTrackedApps.value
-                if (apps.isNotEmpty()) {
-                    val usages = apps.associate { app ->
-                        app.packageName to com.example.utils.UsageUtils.getUsageTimeForApp(application, app.packageName)
+            allTrackedApps.collect { apps ->
+                while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    if (apps.isEmpty()) break
+                    apps.forEach { app ->
+                        val usage = com.example.utils.UsageUtils.getUsageTimeForApp(application, app.packageName)
+                        if (appUsages[app.packageName] != usage) {
+                            appUsages[app.packageName] = usage
+                        }
                     }
-                    _appUsages.value = usages
-                } else {
-                    _appUsages.value = emptyMap()
+                    kotlinx.coroutines.delay(2000)
                 }
-                kotlinx.coroutines.delay(2000) // Poll every 2 seconds to reduce battery/CPU usage
             }
         }
     }
