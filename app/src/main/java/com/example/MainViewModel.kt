@@ -13,6 +13,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
 import com.example.data.AppRepository
 import com.example.data.PenaltyContact
+import com.example.data.DailyStat
+import com.example.data.UnlockEvent
+import java.util.Calendar
 import com.example.data.TrackedApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -80,6 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allTrackedApps: StateFlow<List<TrackedApp>>
     val allContacts: StateFlow<List<PenaltyContact>>
     val allDailyStats: StateFlow<List<com.example.data.DailyStat>>
+    val todayUnlockEvents: StateFlow<List<UnlockEvent>>
     
     private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val installedApps: StateFlow<List<AppInfo>> = _installedApps
@@ -103,6 +107,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         allDailyStats = repository.allDailyStats.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+        
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        todayUnlockEvents = repository.getRecentUnlockEvents(cal.timeInMillis).stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             emptyList()

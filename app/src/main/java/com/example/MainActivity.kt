@@ -85,21 +85,8 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        // Handle permission results if needed
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.READ_CONTACTS,
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.READ_CALL_LOG
-            )
-        )
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
@@ -325,6 +312,7 @@ and productive""",
 
 @Composable
 fun AnalyticsScreen(viewModel: MainViewModel) {
+    val unlockEvents by viewModel.todayUnlockEvents.collectAsStateWithLifecycle()
     val stats by viewModel.allDailyStats.collectAsStateWithLifecycle()
     val today = LocalDate.now().toEpochDay()
     val todayStat = stats.find { it.dateEpochDay == today }
@@ -388,6 +376,29 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
                 }
             }
         }
+        if (unlockEvents.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Unlock Activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            }
+            items(unlockEvents) { event ->
+                val timeFormat = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                val timeStr = timeFormat.format(java.util.Date(event.timestamp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(event.appName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("+${event.bonusMinutesGranted} min • $timeStr", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+            }
+        }
+        
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Text("Weekly Trend", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
@@ -1047,6 +1058,22 @@ fun ContactsScreen(viewModel: MainViewModel) {
     val contacts by viewModel.allContacts.collectAsStateWithLifecycle()
     val context = LocalContext.current
     
+    var hasCallLogPermission by remember { mutableStateOf(androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALL_LOG) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
+    
+    val callLogPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCallLogPermission = isGranted
+    }
+
+    val contactPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, could launch picker but typically users click again
+        }
+    }
+
     val contactPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickContact(),
         onResult = { uri ->
@@ -1060,7 +1087,13 @@ fun ContactsScreen(viewModel: MainViewModel) {
         containerColor = Color.Transparent,
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { contactPickerLauncher.launch(null) },
+                onClick = { 
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        contactPickerLauncher.launch(null) 
+                    } else {
+                        contactPermissionLauncher.launch(android.Manifest.permission.READ_CONTACTS)
+                    }
+                },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Add Contact") },
                 text = { Text("Add Contact") },
                 containerColor = MaterialTheme.colorScheme.primary,

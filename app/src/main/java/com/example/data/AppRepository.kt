@@ -52,4 +52,17 @@ class AppRepository(private val appDao: AppDao) {
         val stat = appDao.getDailyStatSync(today) ?: DailyStat(dateEpochDay = today)
         appDao.insertDailyStat(stat.copy(unlockOccurrences = stat.unlockOccurrences + 1))
     }
+    
+    suspend fun logUnlockEvent(packageName: String, appName: String, timestamp: Long, bonusMinutesGranted: Int, newEffectiveLimitMinutes: Int) {
+        val event = UnlockEvent(
+            packageName = packageName,
+            appName = appName,
+            timestamp = timestamp,
+            bonusMinutesGranted = bonusMinutesGranted,
+            newEffectiveLimitMinutes = newEffectiveLimitMinutes
+        )
+        appDao.insertUnlockEvent(event)
+    }
+    
+    fun getRecentUnlockEvents(sinceTimestamp: Long) = appDao.getRecentUnlockEvents(sinceTimestamp)
 }

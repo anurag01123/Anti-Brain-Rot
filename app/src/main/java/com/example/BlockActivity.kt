@@ -63,6 +63,18 @@ class BlockActivity : ComponentActivity() {
                 val isDarkMode = prefs.getBoolean("dark_mode", false)
                 MyApplicationTheme(darkTheme = isDarkMode) {
                 val context = LocalContext.current
+                var hasCallLog by remember { mutableStateOf(androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALL_LOG) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
+                val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    hasCallLog = isGranted
+                }
+                
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    if (!hasCallLog) {
+                        permissionLauncher.launch(android.Manifest.permission.READ_CALL_LOG)
+                    }
+                }
                 
                 BackHandler(enabled = true) {
                     val homeIntent = Intent(Intent.ACTION_MAIN)
@@ -88,15 +100,16 @@ class BlockActivity : ComponentActivity() {
                                     calendar.set(Calendar.MILLISECOND, 0)
                                     val startOfDay = calendar.timeInMillis
                                     
-                                    val cursor = context.contentResolver.query(
+                                    val hasCallLog = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALL_LOG) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    val cursor = if (hasCallLog) context.contentResolver.query(
                                         CallLog.Calls.CONTENT_URI,
                                         arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.TYPE, CallLog.Calls.DURATION),
                                         "${CallLog.Calls.DATE} >= ?",
                                         arrayOf(startOfDay.toString()),
                                         "${CallLog.Calls.DATE} DESC"
-                                    )
+                                    ) else null
                                     
-                                    cursor?.use { c ->
+                                    if (hasCallLog) cursor?.use { c ->
                                         val numIndex = c.getColumnIndex(CallLog.Calls.NUMBER)
                                         val dateIndex = c.getColumnIndex(CallLog.Calls.DATE)
                                         val typeIndex = c.getColumnIndex(CallLog.Calls.TYPE)
@@ -364,11 +377,21 @@ class BlockActivity : ComponentActivity() {
                                 
                                 Button(
                                     onClick = { 
-                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { repository.incrementUnlockOccurrence() }
                                         val bonusKey = "bonus_time_${packageName}_${startOfDay}"
                                         val currentBonus = prefs.getLong(bonusKey, 0L)
                                         val additionalBonus = limitMinutes * 60 * 1000L
                                         prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
+                                        
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { 
+                                            repository.incrementUnlockOccurrence() 
+                                            repository.logUnlockEvent(
+                                                packageName = packageName,
+                                                appName = blockedAppName,
+                                                timestamp = System.currentTimeMillis(),
+                                                bonusMinutesGranted = limitMinutes,
+                                                newEffectiveLimitMinutes = limitMinutes + ((currentBonus + additionalBonus) / (60 * 1000L)).toInt()
+                                            )
+                                        }
                                         finish() 
                                     },
                                     enabled = allCleared,

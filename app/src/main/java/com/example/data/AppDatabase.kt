@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [TrackedApp::class, PenaltyContact::class, DailyStat::class], version = 2, exportSchema = false)
+@Database(entities = [TrackedApp::class, PenaltyContact::class, DailyStat::class, UnlockEvent::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 

@@ -54,7 +54,6 @@ class BlockerAccessibilityService : AccessibilityService() {
         // Prevent infinite block loops
         if (packageName == applicationContext.packageName) return
         if (packageName == "com.android.systemui") return
-        if (packageName == "com.google.android.apps.nexuslauncher") return
         
         // Rate limit block checks to prevent excessive intents
         val now = System.currentTimeMillis()
@@ -143,6 +142,8 @@ class BlockerAccessibilityService : AccessibilityService() {
                 val intent = Intent(applicationContext, BlockActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     putExtra("BLOCKED_APP", trackedApp.appName)
+                    putExtra("PACKAGE_NAME", trackedApp.packageName)
+                    putExtra("LIMIT_MINUTES", trackedApp.dailyLimitMinutes)
                     if (blockReason.isNotEmpty()) {
                         putExtra("BLOCK_REASON", blockReason)
                     }

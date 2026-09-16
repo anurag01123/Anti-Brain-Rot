@@ -20,51 +20,20 @@ object UsageUtils {
 
     fun getUsageTimeForApp(context: Context, packageName: String): Long {
         if (!hasUsageStatsPermission(context)) return 0L
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        
-        val startTime = calendar.timeInMillis
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = cal.timeInMillis
         val endTime = System.currentTimeMillis()
-        
-        var totalTime = 0L
-        val events = usageStatsManager.queryEvents(startTime, endTime)
-        val event = UsageEvents.Event()
-        var lastResumed = 0L
-        var isForeground = false
-        
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.packageName == packageName) {
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) {
-                    if (lastResumed == 0L) {
-                        lastResumed = event.timeStamp
-                    }
-                    isForeground = true
-                } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || 
-                           event.eventType == 2 || 
-                           event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                    if (lastResumed > 0) {
-                        // Ensure we don't count time before startTime if the event started earlier
-                        val effectiveStart = if (lastResumed < startTime) startTime else lastResumed
-                        totalTime += (event.timeStamp - effectiveStart)
-                        lastResumed = 0L
-                    }
-                    isForeground = false
-                }
-            }
-        }
-        
-        if (isForeground && lastResumed > 0) {
-            val effectiveStart = if (lastResumed < startTime) startTime else lastResumed
-            totalTime += (endTime - effectiveStart)
-        }
-        
-        return totalTime
+        if (startTime >= endTime) return 0L
+
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+        return stats.filter { it.packageName == packageName }
+            .sumOf { it.totalTimeInForeground }
+            .coerceIn(0L, endTime - startTime)
     }
 
     fun getContinuousUsageTimeForApp(context: Context, packageName: String): Long {

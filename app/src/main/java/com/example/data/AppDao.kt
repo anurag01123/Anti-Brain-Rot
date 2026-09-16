@@ -46,4 +46,10 @@ interface AppDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDailyStat(stat: DailyStat)
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUnlockEvent(event: UnlockEvent)
+    
+    @Query("SELECT * FROM unlock_events WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
+    fun getRecentUnlockEvents(sinceTimestamp: Long): Flow<List<UnlockEvent>>
 }
