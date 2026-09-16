@@ -46,4 +46,10 @@ class AppRepository(private val appDao: AppDao) {
         val stat = appDao.getDailyStatSync(today) ?: DailyStat(dateEpochDay = today)
         appDao.insertDailyStat(stat.copy(blockOccurrences = stat.blockOccurrences + 1))
     }
+    
+    suspend fun incrementUnlockOccurrence() {
+        val today = LocalDate.now().toEpochDay()
+        val stat = appDao.getDailyStatSync(today) ?: DailyStat(dateEpochDay = today)
+        appDao.insertDailyStat(stat.copy(unlockOccurrences = stat.unlockOccurrences + 1))
+    }
 }

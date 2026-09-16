@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class DailyStat(
     @PrimaryKey val dateEpochDay: Long,
     val urgesInterrupted: Int = 0,
-    val blockOccurrences: Int = 0
+    val blockOccurrences: Int = 0,
+    val unlockOccurrences: Int = 0
 )

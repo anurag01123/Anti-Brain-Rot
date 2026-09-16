@@ -369,8 +369,25 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text("Apps Unlocked & Time Extended", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Text(
+                            text = "${todayStat?.unlockOccurrences ?: 0}",
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+            }
         }
-        
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Text("Weekly Trend", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)

@@ -31,32 +31,37 @@ object UsageUtils {
         val startTime = calendar.timeInMillis
         val endTime = System.currentTimeMillis()
         
-        val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-        var totalTime = statsMap[packageName]?.totalTimeInForeground ?: 0L
-        
-        // queryAndAggregateUsageStats might not include the ongoing session if the app is currently open.
-        val quickEvents = usageStatsManager.queryEvents(endTime - 60 * 60 * 1000L, endTime)
+        var totalTime = 0L
+        val events = usageStatsManager.queryEvents(startTime, endTime)
         val event = UsageEvents.Event()
         var lastResumed = 0L
         var isForeground = false
         
-        while (quickEvents.hasNextEvent()) {
-            quickEvents.getNextEvent(event)
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
             if (event.packageName == packageName) {
                 if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) {
-                    lastResumed = event.timeStamp
+                    if (lastResumed == 0L) {
+                        lastResumed = event.timeStamp
+                    }
                     isForeground = true
                 } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || 
                            event.eventType == 2 || 
                            event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                    lastResumed = 0L
+                    if (lastResumed > 0) {
+                        // Ensure we don't count time before startTime if the event started earlier
+                        val effectiveStart = if (lastResumed < startTime) startTime else lastResumed
+                        totalTime += (event.timeStamp - effectiveStart)
+                        lastResumed = 0L
+                    }
                     isForeground = false
                 }
             }
         }
         
         if (isForeground && lastResumed > 0) {
-            totalTime += (endTime - lastResumed)
+            val effectiveStart = if (lastResumed < startTime) startTime else lastResumed
+            totalTime += (endTime - effectiveStart)
         }
         
         return totalTime

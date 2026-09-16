@@ -364,6 +364,7 @@ class BlockActivity : ComponentActivity() {
                                 
                                 Button(
                                     onClick = { 
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { repository.incrementUnlockOccurrence() }
                                         val bonusKey = "bonus_time_${packageName}_${startOfDay}"
                                         val currentBonus = prefs.getLong(bonusKey, 0L)
                                         val additionalBonus = limitMinutes * 60 * 1000L
