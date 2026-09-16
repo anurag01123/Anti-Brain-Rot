@@ -128,7 +128,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadInstalledApps() {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val pm = getApplication<Application>().packageManager
             val intent = Intent(Intent.ACTION_MAIN, null)
             intent.addCategory(Intent.CATEGORY_LAUNCHER)

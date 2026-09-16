@@ -77,7 +77,8 @@ import java.time.LocalDate
 
 
 object AppIconCache {
-    val cache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
+    // 50 items cache to prevent OOM
+    val cache = object : android.util.LruCache<String, ImageBitmap>(50) {}
 }
 
 class MainActivity : ComponentActivity() {
@@ -759,14 +760,14 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                                         }
                                         .padding(8.dp)
                                 ) {
-                    var iconBitmap by remember(app.packageName) { mutableStateOf<ImageBitmap?>(AppIconCache.cache[app.packageName]) }
+                    var iconBitmap by remember(app.packageName) { mutableStateOf<ImageBitmap?>(AppIconCache.cache.get(app.packageName)) }
                     LaunchedEffect(app.packageName) {
                         if (iconBitmap == null) {
                             withContext(Dispatchers.IO) {
                                 try {
                                     val drawable = context.packageManager.getApplicationIcon(app.packageName)
                                     val bmp = drawableToImageBitmap(drawable)
-                                    AppIconCache.cache[app.packageName] = bmp
+                                    AppIconCache.cache.put(app.packageName, bmp)
                                     iconBitmap = bmp
                                 } catch (e: Exception) {}
                             }
@@ -896,14 +897,14 @@ fun TrackedAppCard(app: TrackedApp, usageMs: Long, onDelete: () -> Unit, onToggl
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    var iconBitmap by remember(app.packageName) { mutableStateOf<ImageBitmap?>(AppIconCache.cache[app.packageName]) }
+                    var iconBitmap by remember(app.packageName) { mutableStateOf<ImageBitmap?>(AppIconCache.cache.get(app.packageName)) }
                     LaunchedEffect(app.packageName) {
                         if (iconBitmap == null) {
                             withContext(Dispatchers.IO) {
                                 try {
                                     val drawable = context.packageManager.getApplicationIcon(app.packageName)
                                     val bmp = drawableToImageBitmap(drawable)
-                                    AppIconCache.cache[app.packageName] = bmp
+                                    AppIconCache.cache.put(app.packageName, bmp)
                                     iconBitmap = bmp
                                 } catch (e: Exception) {}
                             }

@@ -34,6 +34,7 @@ import com.example.data.AppRepository
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import java.util.Calendar
 
 import androidx.activity.compose.BackHandler
@@ -63,7 +64,7 @@ class BlockActivity : ComponentActivity() {
                 var timeRemaining by remember { mutableStateOf("00:00:00") }
                 
                 LaunchedEffect(Unit) {
-                    while (true) {
+                    while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                         val cal = Calendar.getInstance()
                         val current = cal.timeInMillis
                         cal.set(Calendar.HOUR_OF_DAY, 23)

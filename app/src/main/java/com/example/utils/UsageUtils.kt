@@ -20,7 +20,6 @@ object UsageUtils {
 
     fun getUsageTimeForApp(context: Context, packageName: String): Long {
         if (!hasUsageStatsPermission(context)) return 0L
-
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         
         val calendar = Calendar.getInstance()
@@ -32,34 +31,32 @@ object UsageUtils {
         val startTime = calendar.timeInMillis
         val endTime = System.currentTimeMillis()
         
-        var totalTime = 0L
-        val events = usageStatsManager.queryEvents(startTime, endTime)
+        val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+        var totalTime = statsMap[packageName]?.totalTimeInForeground ?: 0L
+        
+        // queryAndAggregateUsageStats might not include the ongoing session if the app is currently open.
+        val quickEvents = usageStatsManager.queryEvents(endTime - 60 * 60 * 1000L, endTime)
         val event = UsageEvents.Event()
+        var lastResumed = 0L
+        var isForeground = false
         
-        var lastForegroundTime = 0L
-        
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
+        while (quickEvents.hasNextEvent()) {
+            quickEvents.getNextEvent(event)
             if (event.packageName == packageName) {
-                // ACTIVITY_RESUMED is 1, ACTIVITY_PAUSED is 2, ACTIVITY_STOPPED is 23
                 if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) {
-                    if (lastForegroundTime == 0L) {
-                        lastForegroundTime = event.timeStamp
-                    }
+                    lastResumed = event.timeStamp
+                    isForeground = true
                 } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || 
                            event.eventType == 2 || 
                            event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                    if (lastForegroundTime > 0) {
-                        totalTime += (event.timeStamp - lastForegroundTime)
-                        lastForegroundTime = 0L
-                    }
+                    lastResumed = 0L
+                    isForeground = false
                 }
             }
         }
         
-        // If it's currently in the foreground
-        if (lastForegroundTime > 0) {
-            totalTime += (endTime - lastForegroundTime)
+        if (isForeground && lastResumed > 0) {
+            totalTime += (endTime - lastResumed)
         }
         
         return totalTime
@@ -99,8 +96,7 @@ object UsageUtils {
         if (lastResumed > 0 && isForeground) {
             return endTime - lastResumed
         }
+        
         return 0L
     }
 }
-
-

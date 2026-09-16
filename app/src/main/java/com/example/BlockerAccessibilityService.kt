@@ -31,11 +31,12 @@ class BlockerAccessibilityService : AccessibilityService() {
         repository = AppRepository(db.appDao())
         
         scope.launch {
+            val powerManager = applicationContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
             while (isActive) {
-                if (currentForegroundPackage.isNotEmpty()) {
+                if (powerManager.isInteractive && currentForegroundPackage.isNotEmpty()) {
                     checkAndBlockApp(currentForegroundPackage)
                 }
-                kotlinx.coroutines.delay(5000) // Poll every 5 seconds for the active app
+                kotlinx.coroutines.delay(5000) // Poll every 5 seconds for the active app, but only process if screen is on
             }
         }
     }
