@@ -55,6 +55,7 @@ class BlockActivity : ComponentActivity() {
         val blockReason = intent.getStringExtra("BLOCK_REASON")
         val packageName = intent.getStringExtra("PACKAGE_NAME") ?: ""
         val limitMinutes = intent.getIntExtra("LIMIT_MINUTES", 0)
+        val isUnconditional = intent.getBooleanExtra("IS_UNCONDITIONAL", false)
         val db = AppDatabase.getDatabase(applicationContext)
         val repository = AppRepository(db.appDao())
         
@@ -290,13 +291,14 @@ class BlockActivity : ComponentActivity() {
                             
                             Spacer(modifier = Modifier.height(24.dp))
                             
-                            Text(
-                                text = "Call Completion Checklist",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Start
-                            )
+                            if (!isUnconditional) {
+                                Text(
+                                    text = "Call Completion Checklist",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
                             
                             Spacer(modifier = Modifier.height(8.dp))
                             
@@ -366,7 +368,6 @@ class BlockActivity : ComponentActivity() {
                                         homeIntent.addCategory(Intent.CATEGORY_HOME)
                                         homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                         startActivity(homeIntent)
-                                        // Do not call finish(), so the lock persists when returning
                                     },
                                     modifier = Modifier.weight(1f).height(56.dp),
                                     shape = RoundedCornerShape(28.dp),
@@ -376,15 +377,19 @@ class BlockActivity : ComponentActivity() {
                                 }
                                 
                                 Button(
-                                    onClick = { 
-                                        val bonusKey = "bonus_time_${packageName}_${startOfDay}"
+                                    onClick = {
+                                         val bonusKey = "bonus_time_${packageName}_${startOfDay}"
                                         val currentBonus = prefs.getLong(bonusKey, 0L)
                                         val additionalBonus = limitMinutes * 60 * 1000L
                                         prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
                                         
-                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { 
-                                            repository.incrementUnlockOccurrence() 
-                                            repository.logUnlockEvent(
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                             val currentContacts = repository.getAllContactsSync()
+                                             for (c in currentContacts) {
+                                                 repository.markContactCalled(c.phoneNumber, 0L)
+                                             }
+                                             repository.incrementUnlockOccurrence()
+                                             repository.logUnlockEvent(
                                                 packageName = packageName,
                                                 appName = blockedAppName,
                                                 timestamp = System.currentTimeMillis(),
@@ -392,14 +397,30 @@ class BlockActivity : ComponentActivity() {
                                                 newEffectiveLimitMinutes = limitMinutes + ((currentBonus + additionalBonus) / (60 * 1000L)).toInt()
                                             )
                                         }
-                                        finish() 
-                                    },
+                                        finish()
+                                     },
                                     enabled = allCleared,
                                     modifier = Modifier.weight(1f).height(56.dp),
                                     shape = RoundedCornerShape(28.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                 ) {
                                     Text("Unlock App", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            } else {
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Button(
+                                    onClick = {
+                                        val homeIntent = Intent(Intent.ACTION_MAIN)
+                                        homeIntent.addCategory(Intent.CATEGORY_HOME)
+                                        homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        startActivity(homeIntent)
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                                    shape = RoundedCornerShape(28.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text("Go Home", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
