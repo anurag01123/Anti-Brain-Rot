@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Anti Brain Rot</string>
+    <string name="accessibility_service_description">This service is used to detect when a tracked app is launched so it can be blocked if the daily usage limit is reached.</string>
+</resources>
