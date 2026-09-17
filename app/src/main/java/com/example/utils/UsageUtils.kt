@@ -28,36 +28,8 @@ object UsageUtils {
         val endTime = System.currentTimeMillis()
         if (startTime >= endTime) return 0L
 
-        // Digital Wellbeing accurate method:
-        // Use queryEvents from midnight to now and manually calculate total foreground time
-        val events = usm.queryEvents(startTime, endTime)
-        val event = UsageEvents.Event()
-        var totalTime = 0L
-        var lastResumed = 0L
-
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.packageName == packageName) {
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) {
-                    if (lastResumed == 0L) {
-                        lastResumed = event.timeStamp
-                    }
-                } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || 
-                           event.eventType == 2 || 
-                           event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                    if (lastResumed > 0L) {
-                        totalTime += (event.timeStamp - lastResumed)
-                        lastResumed = 0L
-                    }
-                }
-            }
-        }
-        // If currently open and running:
-        if (lastResumed > 0L) {
-            totalTime += (endTime - lastResumed)
-        }
-
-        return totalTime.coerceIn(0L, endTime - startTime)
+        val stats = usm.queryAndAggregateUsageStats(startTime, endTime)
+        return stats[packageName]?.totalTimeInForeground ?: 0L
     }
 
     fun getContinuousUsageTimeForApp(context: Context, packageName: String): Long {

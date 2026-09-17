@@ -22,6 +22,7 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var lastBlockedPackage = ""
     private var lastBlockTime = 0L
     private var currentForegroundPackage = ""
+    private var foregroundStartTime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -33,8 +34,12 @@ class BlockerAccessibilityService : AccessibilityService() {
             while (isActive) {
                 if (powerManager.isInteractive && currentForegroundPackage.isNotEmpty()) {
                     checkAndBlockApp(currentForegroundPackage)
+                } else if (!powerManager.isInteractive) {
+                    // Screen is off, reset continuous usage tracking
+                    currentForegroundPackage = ""
+                    foregroundStartTime = 0L
                 }
-                kotlinx.coroutines.delay(5000) // Poll every 5 seconds for the active app, but only process if screen is on
+                kotlinx.coroutines.delay(2000) // Poll every 2 seconds for faster response
             }
         }
     }
@@ -43,19 +48,20 @@ class BlockerAccessibilityService : AccessibilityService() {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         
         val packageName = event.packageName?.toString() ?: return
-        currentForegroundPackage = packageName
+        if (packageName != currentForegroundPackage) {
+            currentForegroundPackage = packageName
+            foregroundStartTime = System.currentTimeMillis() // Reset continuous time on app switch
+        }
         
         scope.launch { checkAndBlockApp(packageName) }
     }
-
-        private suspend fun checkAndBlockApp(packageName: String) {
-        // Prevent infinite block loops
+    
+    private suspend fun checkAndBlockApp(packageName: String) {
         if (packageName == applicationContext.packageName) return
         if (packageName == "com.android.systemui") return
         
-        // Rate limit block checks to prevent excessive intents
         val now = System.currentTimeMillis()
-        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 300) return
+        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 1000) return
 
         val trackedApp = repository.getTrackedApp(packageName) ?: return
         if (!trackedApp.isActive) return
@@ -94,7 +100,11 @@ class BlockerAccessibilityService : AccessibilityService() {
         }
         
         if (!shouldBlock && isAntiDoom) {
-            val continuousUsage = UsageUtils.getContinuousUsageTimeForApp(applicationContext, packageName)
+            // Track continuous usage manually via accessibility service events
+            val continuousUsage = if (foregroundStartTime > 0 && packageName == currentForegroundPackage) {
+                now - foregroundStartTime
+            } else 0L
+            
             if (continuousUsage > 5 * 60 * 1000L) { // 5 minutes continuous
                 shouldBlock = true
                 isUnconditional = true
@@ -120,22 +130,13 @@ class BlockerAccessibilityService : AccessibilityService() {
         }
         
         if (shouldBlock) {
-            // Unconditional blocks don't check contacts
-            // Conditional blocks DO check contacts (unless we do it exclusively in BlockActivity)
-            // But wait, if they have NO contacts added, we still want to block them!
-            // Actually, we can just block unconditionally here, and let BlockActivity handle the UI.
-            
-            // However, we want to bypass the block IF it's conditional AND they completed their calls.
-            // But if they clicked Unlock, they got bonusMillis. So currentUsage > limit + bonus is FALSE!
-            // So we don't even NEED to check contacts here anymore! It's self-resolving!
-            
             lastBlockedPackage = packageName
             lastBlockTime = now
             
             repository.incrementBlockOccurrence()
             
             val intent = Intent(applicationContext, BlockActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
                 putExtra("BLOCKED_APP", trackedApp.appName)
                 putExtra("PACKAGE_NAME", packageName)
                 putExtra("LIMIT_MINUTES", trackedApp.dailyLimitMinutes)
