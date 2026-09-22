@@ -1,0 +1,102 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Glowing Background Aura -->
+    <path
+        android:pathData="M50,15 C69.33,15 85,30.67 85,50 C85,69.33 69.33,85 50,85 C30.67,85 15,69.33 15,50 C15,30.67 30.67,15 50,15 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="50"
+                android:centerY="50"
+                android:gradientRadius="35"
+                android:type="radial">
+                <item android:color="#2B8B5CF6" android:offset="0.0" />
+                <item android:color="#008B5CF6" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Triangle Connection Line (Accountability Web) -->
+    <path
+        android:pathData="M50,30 L25,72 L75,72 Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#8B5CF6"
+        android:strokeAlpha="0.5"
+        android:strokeLineJoin="round" />
+
+    <!-- Center Heart Shield -->
+    <path
+        android:pathData="M50,44 C45,39 37,42 37,50 C37,58 50,66 50,66 C50,66 63,58 63,50 C63,42 55,39 50,44 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="37"
+                android:startY="39"
+                android:endX="63"
+                android:endY="66"
+                android:type="linear">
+                <item android:color="#EC4899" android:offset="0.0" />
+                <item android:color="#F43F5E" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top Guardian Avatar (Indigo) -->
+    <path
+        android:pathData="M50,22 C54.42,22 58,25.58 58,30 C58,34.42 54.42,38 50,38 C45.58,38 42,34.42 42,30 C42,25.58 45.58,22 50,22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="42"
+                android:startY="22"
+                android:endX="58"
+                android:endY="38"
+                android:type="linear">
+                <item android:color="#6366F1" android:offset="0.0" />
+                <item android:color="#4F46E5" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bottom Left Guardian Avatar (Emerald) -->
+    <path
+        android:pathData="M25,64 C29.42,64 33,67.58 33,72 C33,76.42 29.42,80 25,80 C20.58,80 17,76.42 17,72 C17,67.58 20.58,64 25,64 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="17"
+                android:startY="64"
+                android:endX="33"
+                android:endY="80"
+                android:type="linear">
+                <item android:color="#10B981" android:offset="0.0" />
+                <item android:color="#059669" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bottom Right Guardian Avatar (Amber) -->
+    <path
+        android:pathData="M75,64 C79.42,64 83,67.58 83,72 C83,76.42 79.42,80 75,80 C70.58,80 67,76.42 67,72 C67,67.58 70.58,64 75,64 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="67"
+                android:startY="64"
+                android:endX="83"
+                android:endY="80"
+                android:type="linear">
+                <item android:color="#F59E0B" android:offset="0.0" />
+                <item android:color="#D97706" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Sparkles -->
+    <path
+        android:pathData="M32,28 L33,31 L36,32 L33,33 L32,36 L31,33 L28,32 L31,31 Z"
+        android:fillColor="#FDE047" />
+    <path
+        android:pathData="M68,28 L69,31 L72,32 L69,33 L68,36 L67,33 L64,32 L67,31 Z"
+        android:fillColor="#38BDF8" />
+</vector>

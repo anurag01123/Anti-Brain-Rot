@@ -1,0 +1,94 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Ambient Aura -->
+    <path
+        android:pathData="M50,10 C72.1,10 90,27.9 90,50 C90,72.1 72.1,90 50,90 C27.9,90 10,72.1 10,50 C10,27.9 27.9,10 50,10 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="50"
+                android:centerY="50"
+                android:gradientRadius="40"
+                android:type="radial">
+                <item android:color="#3306B6D4" android:offset="0.0" />
+                <item android:color="#0006B6D4" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Brain Left Hemisphere -->
+    <path
+        android:pathData="M48,26 C41,26 35,30 35,36 C31,37 28,41 28,45 C28,47 29,49 30,51 C27,53 25,57 25,61 C25,66 29,70 34,71 C34,74 37,77 41,77 C44,77 46,75 48,73 L48,26 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="25"
+                android:startY="26"
+                android:endX="48"
+                android:endY="77"
+                android:type="linear">
+                <item android:color="#818CF8" android:offset="0.0" />
+                <item android:color="#6366F1" android:offset="0.5" />
+                <item android:color="#4F46E5" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Brain Right Hemisphere -->
+    <path
+        android:pathData="M52,26 C59,26 65,30 65,36 C69,37 72,41 72,45 C72,47 71,49 70,51 C73,53 75,57 75,61 C75,66 71,70 66,71 C66,74 63,77 59,77 C56,77 54,75 52,73 L52,26 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="75"
+                android:startY="26"
+                android:endX="52"
+                android:endY="77"
+                android:type="linear">
+                <item android:color="#38BDF8" android:offset="0.0" />
+                <item android:color="#06B6D4" android:offset="0.5" />
+                <item android:color="#0284C7" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Synapse Glow Lines -->
+    <path
+        android:pathData="M38,42 C42,42 44,45 48,45 M34,55 C38,55 42,52 48,58 M40,66 C43,66 45,63 48,65"
+        android:strokeWidth="2"
+        android:strokeColor="#C7D2FE"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M62,42 C58,42 56,45 52,45 M66,55 C62,55 58,52 52,58 M60,66 C57,66 55,63 52,65"
+        android:strokeWidth="2"
+        android:strokeColor="#BAE6FD"
+        android:strokeLineCap="round" />
+
+    <!-- Lotus Bottom Petals (Mindfulness / Peace) -->
+    <path
+        android:pathData="M50,75 C45,71 38,76 34,81 C42,83 47,81 50,75 Z"
+        android:fillColor="#10B981" />
+    <path
+        android:pathData="M50,75 C55,71 62,76 66,81 C58,83 53,81 50,75 Z"
+        android:fillColor="#34D399" />
+    <path
+        android:pathData="M50,71 C47,67 43,71 40,75 C45,76 48,74 50,71 Z"
+        android:fillColor="#6EE7B7" />
+    <path
+        android:pathData="M50,71 C53,67 57,71 60,75 C55,76 52,74 50,71 Z"
+        android:fillColor="#A7F3D0" />
+
+    <!-- Star Glow Sparks -->
+    <path
+        android:pathData="M50,14 L52,19 L57,21 L52,23 L50,28 L48,23 L43,21 L48,19 Z"
+        android:fillColor="#FBBF24" />
+    <path
+        android:pathData="M20,38 L21,41 L24,42 L21,43 L20,46 L19,43 L16,42 L19,41 Z"
+        android:fillColor="#F472B6" />
+    <path
+        android:pathData="M80,38 L81,41 L84,42 L81,43 L80,46 L79,43 L76,42 L79,41 Z"
+        android:fillColor="#38BDF8" />
+</vector>

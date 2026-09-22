@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Outer Ring Base -->
+    <path
+        android:strokeWidth="3.5"
+        android:strokeColor="#334155"
+        android:pathData="M24,7 C33.39,7 41,14.61 41,24 C41,33.39 33.39,41 24,41 C14.61,41 7,33.39 7,24 C7,14.61 14.61,7 24,7 Z" />
+
+    <!-- Progress Arc with Cyan-Violet Gradient -->
+    <path
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M24,7 C33.39,7 41,14.61 41,24 C41,30.5 37.3,36.1 32,39">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="24"
+                android:startY="7"
+                android:endX="32"
+                android:endY="39"
+                android:type="linear">
+                <item android:color="#06B6D4" android:offset="0.0" />
+                <item android:color="#6366F1" android:offset="0.6" />
+                <item android:color="#A855F7" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top Crown / Push Button -->
+    <path
+        android:pathData="M21,3 L27,3 L27,6 L21,6 Z"
+        android:fillColor="#94A3B8" />
+
+    <!-- Center Clock Hands -->
+    <path
+        android:strokeWidth="2.5"
+        android:strokeColor="#F8FAFC"
+        android:strokeLineCap="round"
+        android:pathData="M24,24 L24,14 M24,24 L31,24" />
+
+    <!-- Center Pivot Dot -->
+    <path
+        android:pathData="M24,22 C25.1,22 26,22.9 26,24 C26,25.1 25.1,26 24,26 C22.9,26 22,25.1 22,24 C22,22.9 22.9,22 24,22 Z"
+        android:fillColor="#06B6D4" />
+</vector>

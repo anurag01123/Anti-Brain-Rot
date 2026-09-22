@@ -85,4 +85,26 @@ class ExampleRobolectricTest {
     assertEquals(true, exceededItem.isExceeded)
     assertEquals(5, exceededItem.overtimeMinutes)
   }
+
+  @get:org.junit.Rule val composeTestRule = androidx.compose.ui.test.junit4.createComposeRule()
+
+  @Test
+  fun `render MainScreen in composeTestRule`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val vm = MainViewModel(context as android.app.Application)
+    composeTestRule.setContent {
+      com.example.ui.theme.MyApplicationTheme {
+        com.example.ui.components.ModernBackground(isDark = false) {
+          MainScreen(viewModel = vm, onCheckUsagePermission = {}, onCheckAccessibility = {})
+        }
+      }
+    }
+    composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun `launch MainActivity`() {
+    val activity = org.robolectric.Robolectric.buildActivity(MainActivity::class.java).setup().get()
+    org.junit.Assert.assertNotNull(activity)
+  }
 }

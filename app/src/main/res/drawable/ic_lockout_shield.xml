@@ -1,0 +1,104 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Outer Soft Glow Ring -->
+    <path
+        android:pathData="M60,10 C87.61,10 110,32.39 110,60 C110,87.61 87.61,110 60,110 C32.39,110 10,87.61 10,60 C10,32.39 32.39,10 60,10 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="60"
+                android:centerY="60"
+                android:gradientRadius="50"
+                android:type="radial">
+                <item android:color="#266366F1" android:offset="0.0" />
+                <item android:color="#006366F1" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer Pulsing Circle -->
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#4F46E5"
+        android:strokeAlpha="0.3"
+        android:pathData="M60,16 C84.3,16 104,35.7 104,60 C104,84.3 84.3,104 60,104 C35.7,104 16,84.3 16,60 C16,35.7 35.7,16 60,16 Z" />
+
+    <!-- Shield Base Silhouette with Radiant Violet-to-Indigo Gradient -->
+    <path
+        android:pathData="M60,22 C78,22 92,30 92,44 C92,72 68,92 60,98 C52,92 28,72 28,44 C28,30 42,22 60,22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="28"
+                android:startY="22"
+                android:endX="92"
+                android:endY="98"
+                android:type="linear">
+                <item android:color="#4F46E5" android:offset="0.0" />
+                <item android:color="#7C3AED" android:offset="0.5" />
+                <item android:color="#EC4899" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shield Inner Bevel Highlight -->
+    <path
+        android:pathData="M60,26 C75,26 86,33 86,45 C86,69 66,86 60,91 C54,86 34,69 34,45 C34,33 45,26 60,26 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="34"
+                android:startY="26"
+                android:endX="86"
+                android:endY="91"
+                android:type="linear">
+                <item android:color="#312E81" android:offset="0.0" />
+                <item android:color="#4338CA" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shield Specular Crest -->
+    <path
+        android:pathData="M60,28 C72,28 80,33 82,41 C76,46 68,48 60,48 C52,48 44,46 38,41 C40,33 48,28 60,28 Z"
+        android:fillColor="#38BDF8"
+        android:fillAlpha="0.35" />
+
+    <!-- Lock Shackle Arc -->
+    <path
+        android:pathData="M52,50 L52,44 C52,39.58 55.58,36 60,36 C64.42,36 68,39.58 68,44 L68,50"
+        android:strokeWidth="4"
+        android:strokeColor="#FBBF24"
+        android:strokeLineCap="round" />
+
+    <!-- Golden Lock Body -->
+    <path
+        android:pathData="M48,50 C46.9,50 46,50.9 46,52 L46,68 C46,69.1 46.9,70 48,70 L72,70 C73.1,70 74,69.1 74,68 L74,52 C74,50.9 73.1,50 72,50 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="46"
+                android:startY="50"
+                android:endX="74"
+                android:endY="70"
+                android:type="linear">
+                <item android:color="#FDE047" android:offset="0.0" />
+                <item android:color="#F59E0B" android:offset="0.6" />
+                <item android:color="#D97706" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Keyhole Cutout -->
+    <path
+        android:pathData="M60,56 C58.9,56 58,56.9 58,58 C58,58.7 58.4,59.3 59,59.7 L59,64 L61,64 L61,59.7 C61.6,59.3 62,58.7 62,58 C62,56.9 61.1,56 60,56 Z"
+        android:fillColor="#78350F" />
+
+    <!-- Radiant Sparks -->
+    <path
+        android:pathData="M60,18 L60,12 M60,108 L60,102 M18,60 L12,60 M108,60 L102,60 M30,30 L25,25 M90,90 L95,95 M30,90 L25,95 M90,30 L95,25"
+        android:strokeWidth="2.5"
+        android:strokeColor="#60A5FA"
+        android:strokeLineCap="round" />
+</vector>

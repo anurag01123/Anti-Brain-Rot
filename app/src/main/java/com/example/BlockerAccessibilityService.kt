@@ -27,15 +27,45 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var lastBlockTime = 0L
     private var currentForegroundPackage = ""
     private var foregroundStartTime = 0L
+    private var isBlockOverlayActive = false
+    private var activeBlockedPackage: String? = null
 
     private val launcherPackages = mutableSetOf<String>()
 
     companion object {
         private const val TAG = "BlockerService"
+        
+        @Volatile
+        var instance: BlockerAccessibilityService? = null
+            private set
+
+        fun goToHome() {
+            instance?.let { service ->
+                service.currentForegroundPackage = ""
+                service.foregroundStartTime = 0L
+                service.isBlockOverlayActive = false
+                service.activeBlockedPackage = null
+                service.performGlobalAction(GLOBAL_ACTION_HOME)
+            }
+        }
+
+        fun notifyAppExited(packageName: String?) {
+            instance?.let { service ->
+                if (packageName.isNullOrEmpty() || 
+                    service.currentForegroundPackage == packageName || 
+                    service.activeBlockedPackage == packageName) {
+                    service.currentForegroundPackage = ""
+                    service.foregroundStartTime = 0L
+                    service.isBlockOverlayActive = false
+                    service.activeBlockedPackage = null
+                }
+            }
+        }
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         Log.d(TAG, "BlockerAccessibilityService connected")
         val db = AppDatabase.getDatabase(applicationContext)
         repository = AppRepository(db.appDao())
@@ -49,6 +79,8 @@ class BlockerAccessibilityService : AccessibilityService() {
                 } else if (!powerManager.isInteractive) {
                     currentForegroundPackage = ""
                     foregroundStartTime = 0L
+                    isBlockOverlayActive = false
+                    activeBlockedPackage = null
                 }
                 delay(1500)
             }
@@ -58,7 +90,12 @@ class BlockerAccessibilityService : AccessibilityService() {
     private fun loadLauncherPackages() {
         try {
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            val resolveInfos = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            val resolveInfos = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.queryIntentActivities(intent, 0)
+            }
             launcherPackages.clear()
             for (info in resolveInfos) {
                 info.activityInfo?.packageName?.let { launcherPackages.add(it) }
@@ -76,25 +113,44 @@ class BlockerAccessibilityService : AccessibilityService() {
         
         val packageName = event.packageName?.toString() ?: return
         
-        // Skip system packages, system UI, keyboards, launcher, and dialers
+        // If user is in Home, Launcher, SystemUI, or Anti Brain Rot itself:
         if (isIgnoredPackage(packageName)) {
+            // Crucial: Clear foreground tracking so the background polling loop
+            // does NOT continue re-triggering block actions or flickering!
+            currentForegroundPackage = ""
+            foregroundStartTime = 0L
+            isBlockOverlayActive = false
+            activeBlockedPackage = null
             return
         }
 
         if (packageName != currentForegroundPackage) {
             currentForegroundPackage = packageName
             foregroundStartTime = System.currentTimeMillis()
+            // Reset overlay active flag when a new app is opened so it can be evaluated
+            if (activeBlockedPackage != packageName) {
+                isBlockOverlayActive = false
+                activeBlockedPackage = null
+            }
         }
 
         scope.launch { checkAndBlockApp(packageName) }
     }
 
     private fun isIgnoredPackage(packageName: String): Boolean {
+        if (packageName.isBlank()) return true
         if (packageName == applicationContext.packageName) return true
         if (packageName == "com.android.systemui") return true
         if (packageName == "android") return true
         if (packageName.contains("inputmethod")) return true
-        if (launcherPackages.contains(packageName) || packageName.contains("launcher")) return true
+        
+        val lower = packageName.lowercase()
+        if (lower.contains("launcher") || 
+            lower.contains("home") || 
+            lower.contains("nexuslauncher") || 
+            lower.contains("quickstep")) return true
+            
+        if (launcherPackages.contains(packageName)) return true
         if (isDialer(packageName)) return true
         return false
     }
@@ -116,7 +172,15 @@ class BlockerAccessibilityService : AccessibilityService() {
         if (!trackedApp.isActive) return
 
         val now = System.currentTimeMillis()
-        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 1500) return
+
+        // If this app is already actively blocked and showing the overlay, do not spam re-trigger
+        // This prevents the screen from flickering and allows the user to press "Go Home" or navigate away smoothly
+        if (activeBlockedPackage == packageName && isBlockOverlayActive) {
+            return
+        }
+
+        // Throttle rapid re-blocks within 2 seconds
+        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 2000) return
 
         val prefs = applicationContext.getSharedPreferences("block_settings", Context.MODE_PRIVATE)
         val isGlobalBlock = prefs.getBoolean("block_all", false)
@@ -187,6 +251,8 @@ class BlockerAccessibilityService : AccessibilityService() {
         }
         
         if (shouldBlock) {
+            isBlockOverlayActive = true
+            activeBlockedPackage = packageName
             lastBlockedPackage = packageName
             lastBlockTime = now
             
@@ -215,6 +281,7 @@ class BlockerAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         job.cancel()
     }
 }

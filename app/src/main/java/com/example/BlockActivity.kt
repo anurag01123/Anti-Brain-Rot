@@ -14,24 +14,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.SelfImprovement
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -74,6 +82,19 @@ class BlockActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         SystemAlertWindowService.onActivityDisplayed(this)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        SystemAlertWindowService.hideBlockOverlay(this)
+        BlockerAccessibilityService.notifyAppExited(packageNameState.value)
+        finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        SystemAlertWindowService.hideBlockOverlay(this)
+        BlockerAccessibilityService.notifyAppExited(packageNameState.value)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,10 +143,13 @@ class BlockActivity : ComponentActivity() {
                 
                 BackHandler(enabled = true) {
                     SystemAlertWindowService.hideBlockOverlay(context)
-                    val homeIntent = Intent(Intent.ACTION_MAIN)
-                    homeIntent.addCategory(Intent.CATEGORY_HOME)
-                    homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    BlockerAccessibilityService.goToHome()
+                    val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
                     context.startActivity(homeIntent)
+                    (context as? android.app.Activity)?.finish()
                 }
 
                 val contacts by repository.allContacts.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -222,176 +246,366 @@ class BlockActivity : ComponentActivity() {
                 val calledCount = contacts.count { it.lastCalledTimestamp >= startOfDay }
                 val allCleared = contacts.size >= minContactsRequired && calledCount >= contacts.size
 
+                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                val shieldPulse by infiniteTransition.animateFloat(
+                    initialValue = 0.96f,
+                    targetValue = 1.04f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(2200, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "shield_pulse"
+                )
+
+                val stats by repository.allDailyStats.collectAsStateWithLifecycle(initialValue = emptyList())
+                val todayEpoch = java.time.LocalDate.now().toEpochDay()
+                val todayStat = stats.find { it.dateEpochDay == todayEpoch }
+                val urgesResisted = todayStat?.urgesInterrupted ?: 0
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
+                        .background(Color(0xFF0A0814))
                 ) {
-                    val primary = MaterialTheme.colorScheme.primary
-                    val tertiary = MaterialTheme.colorScheme.tertiary
-                    val errorColor = MaterialTheme.colorScheme.error
-                    
-                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                        // Night sky / dramatic background elements
-                        drawCircle(color = errorColor.copy(alpha = 0.1f), radius = size.width * 0.8f, center = androidx.compose.ui.geometry.Offset(size.width * 0.5f, size.height * 0.1f))
-                        
-                        // Mountains
-                        val path = androidx.compose.ui.graphics.Path().apply {
-                            moveTo(0f, size.height * 0.6f)
-                            quadraticTo(size.width * 0.25f, size.height * 0.4f, size.width * 0.5f, size.height * 0.55f)
-                            quadraticTo(size.width * 0.75f, size.height * 0.7f, size.width, size.height * 0.45f)
-                            lineTo(size.width, size.height)
-                            lineTo(0f, size.height)
-                            close()
-                        }
-                        drawPath(path, color = tertiary.copy(alpha = 0.2f))
-                        
-                        val path2 = androidx.compose.ui.graphics.Path().apply {
-                            moveTo(0f, size.height * 0.7f)
-                            quadraticTo(size.width * 0.3f, size.height * 0.6f, size.width * 0.6f, size.height * 0.75f)
-                            quadraticTo(size.width * 0.8f, size.height * 0.8f, size.width, size.height * 0.65f)
-                            lineTo(size.width, size.height)
-                            lineTo(0f, size.height)
-                            close()
-                        }
-                        drawPath(path2, color = primary.copy(alpha = 0.25f))
-                        
-                        // Small animal silhouette (e.g., bird or owl)
-                        val animalPath = androidx.compose.ui.graphics.Path().apply {
-                            moveTo(size.width * 0.8f, size.height * 0.2f)
-                            quadraticTo(size.width * 0.82f, size.height * 0.18f, size.width * 0.85f, size.height * 0.2f)
-                            quadraticTo(size.width * 0.87f, size.height * 0.18f, size.width * 0.89f, size.height * 0.2f)
-                        }
-                        drawPath(animalPath, color = primary.copy(alpha = 0.5f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-                    }
-
-                    // Glass bottom sheet
+                    // Ambient radial atmospheric background
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.8f)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
-                            .padding(horizontal = 24.dp, vertical = 32.dp)
+                            .fillMaxSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x334F46E5),
+                                        Color(0x117C3AED),
+                                        Color.Transparent
+                                    ),
+                                    center = androidx.compose.ui.geometry.Offset(500f, 200f),
+                                    radius = 1200f
+                                )
+                            )
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding(),
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Text(
-                                text = "LOCKED OUT",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
-                                letterSpacing = 2.sp
-                            )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text(
-                                text = blockedAppName,
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            if (blockReason != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                        // 1. Hero Shield & Badges
+                        item {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(116.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Glowing halo
+                                    Box(
+                                        modifier = Modifier
+                                            .size(116.dp)
+                                            .scale(shieldPulse)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.radialGradient(
+                                                    colors = listOf(
+                                                        Color(0x446366F1),
+                                                        Color.Transparent
+                                                    )
+                                                )
+                                            )
+                                    )
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_lockout_shield),
+                                        contentDescription = "Lockout Shield",
+                                        modifier = Modifier.size(92.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Surface(
+                                    color = Color(0x226366F1),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x55818CF8))
+                                ) {
+                                    Text(
+                                        text = "ANTI BRAIN ROT • FOCUS LOCK",
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFFA5B4FC),
+                                        letterSpacing = 1.2.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
                                 Text(
-                                    text = blockReason,
+                                    text = blockedAppName,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = blockReason ?: if (isUnconditional) {
+                                        "Application is locked to break compulsive digital habits."
+                                    } else {
+                                        "Daily limit reached (${limitMinutes}m). Reclaim your time and energy."
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
                                 )
                             }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
+                        }
+
+                        // 2. Cooldown Timer Card
+                        item {
                             Box(
                                 modifier = Modifier
-                                    .size(160.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(26.dp))
+                                    .background(Color(0xFF131024))
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0x33818CF8),
+                                        shape = RoundedCornerShape(26.dp)
+                                    )
+                                    .padding(22.dp)
                             ) {
-                                CircularProgressIndicator(
-                                    progress = { 1f },
-                                    modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.error,
-                                    strokeWidth = 8.dp
-                                )
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.ic_cooldown_timer),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "MIDNIGHT RESET COOLDOWN",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF818CF8),
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
                                     Text(
                                         text = timeRemaining,
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        style = MaterialTheme.typography.displayMedium,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                        letterSpacing = 2.sp
                                     )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
                                     Text(
-                                        text = "Cooldown",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        text = "Hours : Minutes : Seconds remaining today",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF64748B)
                                     )
                                 }
                             }
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            if (!isUnconditional) {
-                                Text(
-                                    text = "Call Completion Checklist",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                        }
+
+                        // 3. Urge Pause & Mindfulness Card
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(Color(0xFF17132C))
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0x22F43F5E),
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .padding(20.dp)
+                            ) {
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    textAlign = TextAlign.Start
-                                )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            if (contacts.isEmpty()) {
-                                Text("No penalty contacts set. You are locked until tomorrow.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                            } else if (contacts.size < minContactsRequired) {
-                                Text("You need at least 3 contacts to unlock. You are locked until tomorrow.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    items(contacts) { contact ->
-                                        val isCompleted = contact.lastCalledTimestamp >= startOfDay
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth().clickable {
-                                                val intent = Intent(Intent.ACTION_DIAL)
-                                                intent.data = Uri.parse("tel:${contact.phoneNumber}")
-                                                context.startActivity(intent)
-                                            },
-                                            shape = RoundedCornerShape(20.dp),
-                                            colors = CardDefaults.cardColors(containerColor = if (isCompleted) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.4f)),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isCompleted) MaterialTheme.colorScheme.primary.copy(alpha=0.3f) else Color.Transparent)
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_flame_streak),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(54.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Urges Resisted Today",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFB7185)
+                                        )
+                                        Text(
+                                            text = "$urgesResisted impulses resisted",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "Each urge resisted restores mental clarity.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Accountability Contacts Section (if not unconditional lock)
+                        if (!isUnconditional) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "Emergency Accountability",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White
+                                            )
+                                            Text(
+                                                text = "Phone contacts (60s+) to verify intentional use",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF94A3B8)
+                                            )
+                                        }
+
+                                        Surface(
+                                            color = if (allCleared) Color(0x3310B981) else Color(0x226366F1),
+                                            shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
+                                            Text(
+                                                text = "$calledCount / $minContactsRequired",
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (allCleared) Color(0xFF34D399) else Color(0xFFA5B4FC)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    if (contacts.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(Color(0xFF131024))
+                                                .padding(18.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No penalty contacts set up in AntiBrainRot. Add 3 contacts in the app to enable emergency unlocks.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF64748B),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    } else {
+                                        contacts.forEach { contact ->
+                                            val isCalled = contact.lastCalledTimestamp >= startOfDay
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp)
+                                                    .clip(RoundedCornerShape(18.dp))
+                                                    .background(Color(0xFF131024))
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = if (isCalled) Color(0x4410B981) else Color(0x22818CF8),
+                                                        shape = RoundedCornerShape(18.dp)
+                                                    )
+                                                    .clickable {
+                                                        val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                                                            data = Uri.parse("tel:${contact.phoneNumber}")
+                                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        }
+                                                        startActivity(dialIntent)
+                                                    }
+                                                    .padding(14.dp)
                                             ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Box(
-                                                        modifier = Modifier.size(48.dp).background(if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp)),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        if (isCompleted) {
-                                                            Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
-                                                        } else {
-                                                            val onSurfaceVar = MaterialTheme.colorScheme.onSurfaceVariant
-                                                            androidx.compose.foundation.Canvas(modifier = Modifier.size(24.dp)) {
-                                                                drawCircle(color = onSurfaceVar, radius = size.width * 0.4f, center = androidx.compose.ui.geometry.Offset(size.width * 0.5f, size.height * 0.5f))
-                                                                drawCircle(color = onSurfaceVar, radius = size.width * 0.2f, center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.2f))
-                                                                drawCircle(color = onSurfaceVar, radius = size.width * 0.2f, center = androidx.compose.ui.geometry.Offset(size.width * 0.8f, size.height * 0.2f))
-                                                            }
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(42.dp)
+                                                                .clip(CircleShape)
+                                                                .background(
+                                                                    if (isCalled) Color(0x2210B981) else Color(0x226366F1)
+                                                                ),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isCalled) Icons.Rounded.CheckCircle else Icons.Rounded.Call,
+                                                                contentDescription = null,
+                                                                tint = if (isCalled) Color(0xFF34D399) else Color(0xFF818CF8),
+                                                                modifier = Modifier.size(20.dp)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.width(12.dp))
+                                                        Column {
+                                                            Text(
+                                                                text = contact.contactName,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White,
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                text = contact.phoneNumber,
+                                                                color = Color(0xFF64748B),
+                                                                style = MaterialTheme.typography.labelSmall
+                                                            )
                                                         }
                                                     }
-                                                    Spacer(modifier = Modifier.width(16.dp))
-                                                    Column {
-                                                        Text(contact.contactName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                                        Text(if (isCompleted) "Completed" else "Pending Call", style = MaterialTheme.typography.bodySmall, color = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+
+                                                    Surface(
+                                                        color = if (isCalled) Color(0x2210B981) else Color(0x226366F1),
+                                                        shape = RoundedCornerShape(10.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (isCalled) "Verified" else "Call Now",
+                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isCalled) Color(0xFF34D399) else Color(0xFFA5B4FC)
+                                                        )
                                                     }
                                                 }
                                             }
@@ -399,103 +613,102 @@ class BlockActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        }
+
+                        // 5. Action Buttons
+                        item {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Primary Button: Resist Urge & Go Home
                                 Button(
                                     onClick = {
                                         SystemAlertWindowService.hideBlockOverlay(context)
                                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                             repository.incrementUrgeInterrupted()
                                         }
-                                        val homeIntent = Intent(Intent.ACTION_MAIN)
-                                        homeIntent.addCategory(Intent.CATEGORY_HOME)
-                                        homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        startActivity(homeIntent)
-                                    },
-                                    modifier = Modifier.weight(1f).height(56.dp),
-                                    shape = RoundedCornerShape(28.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-                                ) {
-                                    Text("Give Up", fontWeight = FontWeight.Bold)
-                                }
-                                
-                                Button(
-                                    onClick = {
-                                        SystemAlertWindowService.hideBlockOverlay(context)
-                                        val bonusKey = "bonus_time_${packageName}_${startOfDay}"
-                                        val currentBonus = prefs.getLong(bonusKey, 0L)
-                                        val additionalBonus = limitMinutes * 60 * 1000L
-                                        prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
-                                        
-                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                             val currentContacts = repository.getAllContactsSync()
-                                             for (c in currentContacts) {
-                                                 repository.markContactCalled(c.phoneNumber, 0L)
-                                             }
-                                             repository.incrementUnlockOccurrence()
-                                             repository.logUnlockEvent(
-                                                packageName = packageName,
-                                                appName = blockedAppName,
-                                                timestamp = System.currentTimeMillis(),
-                                                bonusMinutesGranted = limitMinutes,
-                                                newEffectiveLimitMinutes = limitMinutes + ((currentBonus + additionalBonus) / (60 * 1000L)).toInt()
-                                            )
+                                        BlockerAccessibilityService.goToHome()
+                                        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                            addCategory(Intent.CATEGORY_HOME)
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                                         }
-                                        finish()
-                                     },
-                                    enabled = allCleared,
-                                    modifier = Modifier.weight(1f).height(56.dp),
-                                    shape = RoundedCornerShape(28.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text("Unlock App", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            } else {
-                                Spacer(modifier = Modifier.height(32.dp))
-                                Button(
-                                    onClick = {
-                                        SystemAlertWindowService.hideBlockOverlay(context)
-                                        val homeIntent = Intent(Intent.ACTION_MAIN)
-                                        homeIntent.addCategory(Intent.CATEGORY_HOME)
-                                        homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                         startActivity(homeIntent)
+                                        finish()
                                     },
-                                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
                                     shape = RoundedCornerShape(28.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF4F46E5),
+                                        contentColor = Color.White
+                                    )
                                 ) {
-                                    Text("Go Home", fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        imageVector = Icons.Rounded.Home,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Resist Urge & Go Home",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 16.sp
+                                    )
+                                }
+
+                                // Secondary Unlock Button (if calls completed)
+                                if (!isUnconditional && allCleared) {
+                                    Button(
+                                        onClick = {
+                                            SystemAlertWindowService.hideBlockOverlay(context)
+                                            val bonusKey = "bonus_time_${packageName}_${startOfDay}"
+                                            val currentBonus = prefs.getLong(bonusKey, 0L)
+                                            val additionalBonus = limitMinutes * 60 * 1000L
+                                            prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
+
+                                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                                val currentContacts = repository.getAllContactsSync()
+                                                for (c in currentContacts) {
+                                                    repository.markContactCalled(c.phoneNumber, 0L)
+                                                }
+                                                repository.incrementUnlockOccurrence()
+                                                repository.logUnlockEvent(
+                                                    packageName = packageName,
+                                                    appName = blockedAppName,
+                                                    timestamp = System.currentTimeMillis(),
+                                                    bonusMinutesGranted = limitMinutes,
+                                                    newEffectiveLimitMinutes = limitMinutes + ((currentBonus + additionalBonus) / (60 * 1000L)).toInt()
+                                                )
+                                            }
+                                            finish()
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(54.dp),
+                                        shape = RoundedCornerShape(28.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF059669),
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "Claim Bonus Screen Time (+${limitMinutes}m)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    
-                    // Floating icon
-                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.5f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1000),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "alpha"
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .offset(y = 60.dp)
-                            .size(100.dp)
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(32.dp))
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val primaryColor = MaterialTheme.colorScheme.primary
-                        com.example.ui.components.GrowingPlant(modifier = Modifier.fillMaxSize(), progress = 1f)
                     }
                 }
             }

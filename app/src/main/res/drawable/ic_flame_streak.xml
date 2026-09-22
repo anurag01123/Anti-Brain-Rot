@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Outer Flame Body -->
+    <path
+        android:pathData="M24,4 C24,4 12,18 12,28 C12,35.73 17.37,42 24,42 C30.63,42 36,35.73 36,28 C36,18 24,4 24,4 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="12"
+                android:startY="4"
+                android:endX="36"
+                android:endY="42"
+                android:type="linear">
+                <item android:color="#F43F5E" android:offset="0.0" />
+                <item android:color="#F97316" android:offset="0.5" />
+                <item android:color="#FBBF24" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Core Flame -->
+    <path
+        android:pathData="M24,18 C24,18 18,25 18,30 C18,34.42 20.69,38 24,38 C27.31,38 30,34.42 30,30 C30,25 24,18 24,18 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="18"
+                android:startY="18"
+                android:endX="30"
+                android:endY="38"
+                android:type="linear">
+                <item android:color="#FDE047" android:offset="0.0" />
+                <item android:color="#FEF08A" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

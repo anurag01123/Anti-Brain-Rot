@@ -299,20 +299,20 @@ class SystemAlertWindowService : Service() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#EE0B0B14")) // 93% opaque dark purple-black scrim
+            setBackgroundColor(Color.parseColor("#F2090714")) // 95% dark glass scrim
             setPadding(dpToPx(24), dpToPx(24), dpToPx(24), dpToPx(24))
         }
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dpToPx(24), dpToPx(28), dpToPx(24), dpToPx(28))
+            setPadding(dpToPx(24), dpToPx(32), dpToPx(24), dpToPx(32))
 
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = 24f * density
-                setColor(Color.parseColor("#1C1929"))
-                setStroke(dpToPx(2), Color.parseColor("#E53935")) // Red alert border
+                cornerRadius = 28f * density
+                setColor(Color.parseColor("#151322"))
+                setStroke(dpToPx(1.5f.toInt().coerceAtLeast(1)), Color.parseColor("#4F46E5"))
             }
             background = cardBg
             layoutParams = LinearLayout.LayoutParams(
@@ -321,34 +321,34 @@ class SystemAlertWindowService : Service() {
             )
         }
 
-        // Material Block Icon
+        // Modern Lockout Shield Vector
         val iconView = ImageView(this).apply {
-            setImageResource(R.drawable.ic_block)
-            val iconSize = dpToPx(56)
+            setImageResource(R.drawable.ic_lockout_shield)
+            val iconSize = dpToPx(84)
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
-                bottomMargin = dpToPx(12)
+                bottomMargin = dpToPx(16)
             }
         }
         card.addView(iconView)
 
-        // Subtitle Header
-        val headerView = TextView(this).apply {
-            text = "USAGE LIMIT EXCEEDED"
-            setTextColor(Color.parseColor("#FF5252"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        // Pill Tag: ANTI BRAIN ROT
+        val tagView = TextView(this).apply {
+            text = "ANTI BRAIN ROT • FOCUS SHIELD"
+            setTextColor(Color.parseColor("#818CF8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            letterSpacing = 0.08f
+            letterSpacing = 0.1f
             setPadding(0, 0, 0, dpToPx(6))
         }
-        card.addView(headerView)
+        card.addView(tagView)
 
         // App Name
         val appNameView = TextView(this).apply {
             text = appName
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dpToPx(8))
@@ -357,37 +357,65 @@ class SystemAlertWindowService : Service() {
 
         // Reason description
         val reasonText = blockReason ?: if (isUnconditional) {
-            "This application is currently locked."
+            "Application is strictly locked to prevent mindless doom scrolling."
         } else {
-            "Daily limit of ${limitMinutes}m reached."
+            "Daily limit of ${limitMinutes}m reached. Take a breath and disconnect."
         }
         val reasonView = TextView(this).apply {
             text = reasonText
-            setTextColor(Color.parseColor("#B0BEC5"))
+            setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dpToPx(22))
+            setPadding(0, 0, 0, dpToPx(24))
         }
         card.addView(reasonView)
 
-        // Primary action button: open Penalty Call unlock
-        val unlockButton = Button(this).apply {
-            text = if (isUnconditional) "View Lock Details" else "Complete Penalty Call to Unlock"
+        // Primary action button: Exit to Home Screen
+        val homeButton = Button(this).apply {
+            text = "Resist Urge & Go Home"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            val homeBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 26f * density
+                colors = intArrayOf(Color.parseColor("#4F46E5"), Color.parseColor("#7C3AED"))
+                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+            }
+            background = homeBg
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(52)
+            ).apply {
+                bottomMargin = dpToPx(12)
+            }
+            setOnClickListener {
+                BlockerAccessibilityService.goToHome()
+                val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                this@SystemAlertWindowService.startActivity(homeIntent)
+                removeOverlayView()
+            }
+        }
+        card.addView(homeButton)
+
+        // Secondary button: View Lockout & Accountability Details
+        val detailsButton = Button(this).apply {
+            text = "Unlock with Accountability Call"
+            setTextColor(Color.parseColor("#CBD5E1"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             val btnBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 24f * density
-                setColor(Color.parseColor("#6750A4"))
+                setColor(Color.parseColor("#232035"))
             }
             background = btnBg
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(50)
-            ).apply {
-                setMargins(0, 0, 0, dpToPx(12))
-            }
+                dpToPx(46)
+            )
             setOnClickListener {
                 launchOverlayActivity(
                     context = this@SystemAlertWindowService,
@@ -400,33 +428,7 @@ class SystemAlertWindowService : Service() {
                 removeOverlayView()
             }
         }
-        card.addView(unlockButton)
-
-        // Secondary button: Exit to Home Screen
-        val homeButton = Button(this).apply {
-            text = "Return to Home Screen"
-            setTextColor(Color.parseColor("#CFD8DC"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            val homeBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 24f * density
-                setColor(Color.parseColor("#292639"))
-            }
-            background = homeBg
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(46)
-            )
-            setOnClickListener {
-                val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-                    addCategory(Intent.CATEGORY_HOME)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                this@SystemAlertWindowService.startActivity(homeIntent)
-                removeOverlayView()
-            }
-        }
-        card.addView(homeButton)
+        card.addView(detailsButton)
 
         root.addView(card)
         return root

@@ -1,0 +1,89 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Phone Body -->
+    <path
+        android:pathData="M35,22 C35,18.7 37.7,16 41,16 L59,16 C62.3,16 65,18.7 65,22 L65,78 C65,81.3 62.3,84 59,84 L41,84 C37.7,84 35,81.3 35,78 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="35"
+                android:startY="16"
+                android:endX="65"
+                android:endY="84"
+                android:type="linear">
+                <item android:color="#1E293B" android:offset="0.0" />
+                <item android:color="#0F172A" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Phone Screen with Soft Emerald to Teal Glow -->
+    <path
+        android:pathData="M38,24 L62,24 L62,74 L38,74 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="38"
+                android:startY="24"
+                android:endX="62"
+                android:endY="74"
+                android:type="linear">
+                <item android:color="#064E3B" android:offset="0.0" />
+                <item android:color="#022C22" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Speaker & Home Notch -->
+    <path
+        android:pathData="M46,20 L54,20"
+        android:strokeWidth="2"
+        android:strokeColor="#64748B"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M50,79 C48.9,79 48,79.9 48,81 C48,82.1 48.9,83 50,83 C51.1,83 52,82.1 52,81 C52,79.9 51.1,79 50,79 Z"
+        android:fillColor="#64748B" />
+
+    <!-- Sprouting Vine Left -->
+    <path
+        android:pathData="M38,50 C26,45 22,35 18,28"
+        android:strokeWidth="3"
+        android:strokeColor="#10B981"
+        android:strokeLineCap="round" />
+    <!-- Leaf 1 Left -->
+    <path
+        android:pathData="M22,34 C16,33 14,26 18,24 C24,24 25,30 22,34 Z"
+        android:fillColor="#34D399" />
+    <!-- Leaf 2 Left -->
+    <path
+        android:pathData="M28,42 C23,43 19,38 23,35 C28,34 30,39 28,42 Z"
+        android:fillColor="#059669" />
+
+    <!-- Sprouting Vine Right -->
+    <path
+        android:pathData="M62,45 C74,40 78,32 82,24"
+        android:strokeWidth="3"
+        android:strokeColor="#10B981"
+        android:strokeLineCap="round" />
+    <!-- Leaf 1 Right -->
+    <path
+        android:pathData="M78,30 C84,29 86,22 82,20 C76,20 75,26 78,30 Z"
+        android:fillColor="#34D399" />
+    <!-- Leaf 2 Right -->
+    <path
+        android:pathData="M72,38 C77,39 81,34 77,31 C72,30 70,35 72,38 Z"
+        android:fillColor="#059669" />
+
+    <!-- Sun Sparks on Screen -->
+    <path
+        android:pathData="M50,42 C46.7,42 44,44.7 44,48 C44,51.3 46.7,54 50,54 C53.3,54 56,51.3 56,48 C56,44.7 53.3,42 50,42 Z"
+        android:fillColor="#FBBF24" />
+    <path
+        android:pathData="M50,36 L50,39 M50,57 L50,60 M38,48 L41,48 M59,48 L62,48 M42,40 L44,42 M56,54 L58,56 M42,56 L44,54 M56,42 L58,40"
+        android:strokeWidth="2"
+        android:strokeColor="#FDE047"
+        android:strokeLineCap="round" />
+</vector>
