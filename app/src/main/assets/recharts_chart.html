@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Usage Data Visualization - Recharts</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: transparent;
+      color: #1e293b;
+      overflow-x: hidden;
+      padding: 12px 8px;
+    }
+    body.dark {
+      color: #f1f5f9;
+    }
+    .container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+    }
+    .chart-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .recharts-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+    }
+    body.dark .recharts-badge {
+      background: rgba(96, 165, 250, 0.2);
+      color: #93c5fd;
+    }
+    .chart-box {
+      width: 100%;
+      height: 280px;
+      position: relative;
+    }
+    .custom-tooltip {
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      font-size: 12px;
+      min-width: 170px;
+    }
+    body.dark .custom-tooltip {
+      background: rgba(30, 41, 59, 0.96);
+      border-color: rgba(51, 65, 85, 0.8);
+      color: #f8fafc;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .tooltip-app-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .status-pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .status-safe { background: #dcfce7; color: #15803d; }
+    .status-warning { background: #fef3c7; color: #b45309; }
+    .status-exceeded { background: #fee2e2; color: #b91c1c; }
+    body.dark .status-safe { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    body.dark .status-warning { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+    body.dark .status-exceeded { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0;
+      color: #64748b;
+    }
+    body.dark .tooltip-row {
+      color: #94a3b8;
+    }
+    .tooltip-value {
+      font-weight: 700;
+      color: #0f172a;
+    }
+    body.dark .tooltip-value {
+      color: #f1f5f9;
+    }
+    .legend-container {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+    .empty-state {
+      height: 240px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 13px;
+      text-align: center;
+      gap: 8px;
+    }
+    /* SVG Fallback / Standalone engine styling */
+    svg.recharts-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .recharts-bar-rect {
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .recharts-bar-rect:hover, .recharts-bar-rect:active {
+      opacity: 0.85;
+      filter: brightness(1.1);
+    }
+  </style>
+  <!-- Load React and Recharts scripts from CDN with fast timeouts -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="chart-header">
+      <span class="chart-title">Daily App Usage vs Limits</span>
+    </div>
+    <div id="chart-root" class="chart-box">
+      <div class="empty-state">Loading Recharts data visualization...</div>
+    </div>
+    <div class="legend-container">
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #3b82f6;"></div>
+        <span>Safe Usage</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #f59e0b;"></div>
+        <span>Approaching Limit (≥75%)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #ef4444;"></div>
+        <span>Exceeded (≥100%)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #94a3b8; border-top: 2px dashed #64748b;"></div>
+        <span>Daily Limit</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let currentData = [];
+    let isDarkMode = false;
+
+    // Listen to theme or bridge setup
+    function setTheme(dark) {
+      isDarkMode = dark;
+      if (dark) {
+        document.body.classList.add('dark');
+      } else {
+        document.body.classList.remove('dark');
+      }
+      renderChart();
+    }
+
+    // Called from Android
+    window.updateUsageData = function(jsonString, isDark) {
+      try {
+        currentData = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+        if (typeof isDark === 'boolean') {
+          setTheme(isDark);
+        } else {
+          renderChart();
+        }
+      } catch (e) {
+        console.error("Error parsing usage data: ", e);
+      }
+    };
+
+    function getBarColor(entry) {
+      if (!entry.limitMinutes || entry.limitMinutes <= 0) return '#3b82f6';
+      const pct = (entry.usedMinutes / entry.limitMinutes) * 100;
+      if (pct >= 100) return '#ef4444'; // Exceeded
+      if (pct >= 75) return '#f59e0b'; // Approaching
+      return '#3b82f6'; // Safe
+    }
+
+    function renderChart() {
+      const root = document.getElementById('chart-root');
+      if (!root) return;
+
+      if (!currentData || currentData.length === 0) {
+        root.innerHTML = '<div class="empty-state">No tracked apps with usage data yet.<br>Add apps to view daily visualization.</div>';
+        return;
+      }
+
+      // Check if Recharts bundle is available from CDN
+      if (window.Recharts && window.React && window.ReactDOM) {
+        renderRechartsReact();
+      } else {
+        // Fallback standalone SVG renderer that renders the exact Recharts spec
+        renderStandaloneSvg();
+      }
+    }
+
+    // Recharts React Renderer
+    function renderRechartsReact() {
+      try {
+        const { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell } = window.Recharts;
+        const e = React.createElement;
+
+        const CustomTooltip = ({ active, payload }) => {
+          if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            const pct = data.limitMinutes > 0 ? Math.round((data.usedMinutes / data.limitMinutes) * 100) : 0;
+            let statusClass = "status-safe";
+            let statusText = "Safe (" + pct + "%)";
+            if (pct >= 100) {
+              statusClass = "status-exceeded";
+              statusText = "Exceeded (" + pct + "%)";
+            } else if (pct >= 75) {
+              statusClass = "status-warning";
+              statusText = "Approaching (" + pct + "%)";
+            }
+
+            return e('div', { className: 'custom-tooltip' },
+              e('div', { className: 'tooltip-app-name' },
+                e('span', null, data.appName),
+                e('span', { className: 'status-pill ' + statusClass }, statusText)
+              ),
+              e('div', { className: 'tooltip-row' },
+                e('span', null, 'Usage Today:'),
+                e('span', { className: 'tooltip-value' }, data.usedMinutes + ' mins')
+              ),
+              e('div', { className: 'tooltip-row' },
+                e('span', null, 'Daily Limit:'),
+                e('span', { className: 'tooltip-value' }, data.limitMinutes + ' mins')
+              ),
+              e('div', { className: 'tooltip-row' },
+                e('span', null, pct >= 100 ? 'Over limit by:' : 'Remaining:'),
+                e('span', { className: 'tooltip-value', style: { color: pct >= 100 ? '#ef4444' : '#10b981' } },
+                  pct >= 100 ? (data.usedMinutes - data.limitMinutes) + ' mins' : (data.limitMinutes - data.usedMinutes) + ' mins'
+                )
+              )
+            );
+          }
+          return null;
+        };
+
+        const chartElement = e(ResponsiveContainer, { width: '100%', height: 280 },
+          e(BarChart, {
+            data: currentData,
+            margin: { top: 15, right: 10, left: -20, bottom: 25 },
+            onClick: (state) => {
+              if (state && state.activePayload && state.activePayload[0]) {
+                const pkg = state.activePayload[0].payload.packageName;
+                if (window.AndroidBridge && window.AndroidBridge.onAppSelected) {
+                  window.AndroidBridge.onAppSelected(pkg);
+                }
+              }
+            }
+          },
+            e(CartesianGrid, { strokeDasharray: '3 3', stroke: isDarkMode ? '#334155' : '#e2e8f0', vertical: false }),
+            e(XAxis, {
+              dataKey: 'appName',
+              tick: { fill: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 11 },
+              interval: 0,
+              angle: -25,
+              textAnchor: 'end',
+              height: 45
+            }),
+            e(YAxis, {
+              tick: { fill: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 11 },
+              unit: 'm'
+            }),
+            e(Tooltip, { content: e(CustomTooltip) }),
+            e(Bar, {
+              dataKey: 'limitMinutes',
+              fill: isDarkMode ? '#1e293b' : '#f1f5f9',
+              stroke: isDarkMode ? '#475569' : '#cbd5e1',
+              strokeDasharray: '4 4',
+              radius: [6, 6, 0, 0],
+              name: 'Daily Limit'
+            }),
+            e(Bar, {
+              dataKey: 'usedMinutes',
+              radius: [6, 6, 0, 0],
+              name: 'Used Minutes'
+            },
+              currentData.map((entry, index) =>
+                e(Cell, { key: 'cell-' + index, fill: getBarColor(entry) })
+              )
+            )
+          )
+        );
+
+        ReactDOM.render(chartElement, document.getElementById('chart-root'));
+      } catch (err) {
+        console.warn("Recharts render exception, switching to SVG fallback", err);
+        renderStandaloneSvg();
+      }
+    }
+
+    // Standalone SVG fallback renderer replicating Recharts
+    function renderStandaloneSvg() {
+      const root = document.getElementById('chart-root');
+      const w = root.clientWidth || 340;
+      const h = 280;
+      const padLeft = 40;
+      const padRight = 15;
+      const padTop = 20;
+      const padBottom = 45;
+      const chartW = w - padLeft - padRight;
+      const chartH = h - padTop - padBottom;
+
+      const maxVal = Math.max(...currentData.map(d => Math.max(d.usedMinutes || 0, d.limitMinutes || 0)), 30) * 1.15;
+      const count = currentData.length;
+      const slotW = chartW / count;
+      const barW = Math.min(Math.max(slotW * 0.35, 12), 28);
+
+      let gridLines = '';
+      for (let i = 0; i <= 4; i++) {
+        const yVal = Math.round((maxVal / 4) * i);
+        const yPos = padTop + chartH - (yVal / maxVal) * chartH;
+        gridLines += `
+          <line x1="${padLeft}" y1="${yPos}" x2="${w - padRight}" y2="${yPos}" stroke="${isDarkMode ? '#334155' : '#e2e8f0'}" stroke-dasharray="3,3" />
+          <text x="${padLeft - 6}" y="${yPos + 3}" text-anchor="end" fill="${isDarkMode ? '#94a3b8' : '#64748b'}" font-size="10">${yVal}m</text>
+        `;
+      }
+
+      let barsHtml = '';
+      currentData.forEach((d, idx) => {
+        const xCenter = padLeft + idx * slotW + slotW / 2;
+        const usedH = ((d.usedMinutes || 0) / maxVal) * chartH;
+        const limitH = ((d.limitMinutes || 0) / maxVal) * chartH;
+
+        const limitX = xCenter - barW - 2;
+        const usedX = xCenter + 2;
+        const limitY = padTop + chartH - limitH;
+        const usedY = padTop + chartH - usedH;
+        const barColor = getBarColor(d);
+
+        // Limit ghost bar
+        barsHtml += `
+          <rect x="${limitX}" y="${limitY}" width="${barW}" height="${limitH}" rx="4" fill="${isDarkMode ? 'rgba(71,85,105,0.3)' : 'rgba(226,232,240,0.8)'}" stroke="${isDarkMode ? '#64748b' : '#94a3b8'}" stroke-dasharray="3,3" />
+        `;
+
+        // Used minutes bar
+        barsHtml += `
+          <rect class="recharts-bar-rect" data-index="${idx}" x="${usedX}" y="${usedY}" width="${barW}" height="${usedH}" rx="4" fill="${barColor}" onclick="onSelectApp(${idx})" />
+        `;
+
+        // App Name Label
+        const shortName = d.appName.length > 7 ? d.appName.substring(0, 6) + '..' : d.appName;
+        barsHtml += `
+          <text x="${xCenter}" y="${padTop + chartH + 16}" transform="rotate(-25, ${xCenter}, ${padTop + chartH + 16})" text-anchor="end" fill="${isDarkMode ? '#94a3b8' : '#64748b'}" font-size="11" font-weight="500">${shortName}</text>
+        `;
+      });
+
+      root.innerHTML = `
+        <svg class="recharts-svg" viewBox="0 0 ${w} ${h}">
+          ${gridLines}
+          ${barsHtml}
+        </svg>
+      `;
+    }
+
+    window.onSelectApp = function(idx) {
+      if (currentData[idx] && window.AndroidBridge && window.AndroidBridge.onAppSelected) {
+        window.AndroidBridge.onAppSelected(currentData[idx].packageName);
+      }
+    };
+
+    // Auto-poll bridge if available initially
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.AndroidBridge && window.AndroidBridge.getInitialData) {
+        try {
+          const initData = window.AndroidBridge.getInitialData();
+          if (initData) {
+            window.updateUsageData(initData, window.AndroidBridge.isDark ? window.AndroidBridge.isDark() : false);
+          }
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>

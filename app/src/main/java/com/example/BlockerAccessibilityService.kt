@@ -3,6 +3,9 @@ package com.example
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.PowerManager
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.data.AppDatabase
 import com.example.data.AppRepository
@@ -10,9 +13,10 @@ import com.example.utils.UsageUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Calendar
-import kotlinx.coroutines.isActive
 
 class BlockerAccessibilityService : AccessibilityService() {
     private val job = SupervisorJob()
@@ -24,47 +28,95 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var currentForegroundPackage = ""
     private var foregroundStartTime = 0L
 
+    private val launcherPackages = mutableSetOf<String>()
+
+    companion object {
+        private const val TAG = "BlockerService"
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
+        Log.d(TAG, "BlockerAccessibilityService connected")
         val db = AppDatabase.getDatabase(applicationContext)
         repository = AppRepository(db.appDao())
-        
+        loadLauncherPackages()
+
         scope.launch {
-            val powerManager = applicationContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            val powerManager = applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
             while (isActive) {
                 if (powerManager.isInteractive && currentForegroundPackage.isNotEmpty()) {
                     checkAndBlockApp(currentForegroundPackage)
                 } else if (!powerManager.isInteractive) {
-                    // Screen is off, reset continuous usage tracking
                     currentForegroundPackage = ""
                     foregroundStartTime = 0L
                 }
-                kotlinx.coroutines.delay(2000) // Poll every 2 seconds for faster response
+                delay(1500)
             }
         }
     }
 
+    private fun loadLauncherPackages() {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolveInfos = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            launcherPackages.clear()
+            for (info in resolveInfos) {
+                info.activityInfo?.packageName?.let { launcherPackages.add(it) }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading launcher packages", e)
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event == null) return
+        val eventType = event.eventType
+        if (eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         
         val packageName = event.packageName?.toString() ?: return
+        
+        // Skip system packages, system UI, keyboards, launcher, and dialers
+        if (isIgnoredPackage(packageName)) {
+            return
+        }
+
         if (packageName != currentForegroundPackage) {
             currentForegroundPackage = packageName
-            foregroundStartTime = System.currentTimeMillis() // Reset continuous time on app switch
+            foregroundStartTime = System.currentTimeMillis()
         }
-        
+
         scope.launch { checkAndBlockApp(packageName) }
     }
-    
-    private suspend fun checkAndBlockApp(packageName: String) {
-        if (packageName == applicationContext.packageName) return
-        if (packageName == "com.android.systemui") return
-        
-        val now = System.currentTimeMillis()
-        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 1000) return
 
+    private fun isIgnoredPackage(packageName: String): Boolean {
+        if (packageName == applicationContext.packageName) return true
+        if (packageName == "com.android.systemui") return true
+        if (packageName == "android") return true
+        if (packageName.contains("inputmethod")) return true
+        if (launcherPackages.contains(packageName) || packageName.contains("launcher")) return true
+        if (isDialer(packageName)) return true
+        return false
+    }
+
+    private fun isDialer(packageName: String): Boolean {
+        val lower = packageName.lowercase()
+        return lower.contains("dialer") || 
+               lower.contains("phone") || 
+               lower.contains("telecom") ||
+               lower.contains("incall")
+    }
+
+    private suspend fun checkAndBlockApp(packageName: String) {
+        if (isIgnoredPackage(packageName)) return
+
+        // Per user requirements: overnight block, block all, anti-doom scroll, and daily limit
+        // should ONLY apply to the apps added to the list and marked active
         val trackedApp = repository.getTrackedApp(packageName) ?: return
         if (!trackedApp.isActive) return
+
+        val now = System.currentTimeMillis()
+        if (packageName == lastBlockedPackage && (now - lastBlockTime) < 1500) return
 
         val prefs = applicationContext.getSharedPreferences("block_settings", Context.MODE_PRIVATE)
         val isGlobalBlock = prefs.getBoolean("block_all", false)
@@ -74,13 +126,15 @@ class BlockerAccessibilityService : AccessibilityService() {
         var shouldBlock = false
         var blockReason = ""
         var isUnconditional = false
-        
+
+        // 1. BLOCK ALL LISTED APPS
         if (isGlobalBlock) {
             shouldBlock = true
             isUnconditional = true
-            blockReason = "Global block is active."
+            blockReason = "Block All Listed Apps is active."
         }
         
+        // 2. OVERNIGHT BLOCK
         val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val startHour = prefs.getInt("overnight_start_hour", 22)
         val endHour = prefs.getInt("overnight_end_hour", 7)
@@ -94,39 +148,42 @@ class BlockerAccessibilityService : AccessibilityService() {
         if (!shouldBlock && isOvernightBlock && isOvernight) {
             shouldBlock = true
             isUnconditional = true
-            val sStr = if(startHour > 12) "${startHour-12} PM" else if(startHour==12) "12 PM" else if(startHour==0) "12 AM" else "${startHour} AM"
-            val eStr = if(endHour > 12) "${endHour-12} PM" else if(endHour==12) "12 PM" else if(endHour==0) "12 AM" else "${endHour} AM"
+            val sStr = if (startHour > 12) "${startHour - 12} PM" else if (startHour == 12) "12 PM" else if (startHour == 0) "12 AM" else "$startHour AM"
+            val eStr = if (endHour > 12) "${endHour - 12} PM" else if (endHour == 12) "12 PM" else if (endHour == 0) "12 AM" else "$endHour AM"
             blockReason = "Overnight block is active ($sStr - $eStr)."
         }
         
+        // 3. ANTI-DOOM SCROLLING (5 minutes continuous usage)
         if (!shouldBlock && isAntiDoom) {
-            // Track continuous usage manually via accessibility service events
-            val continuousUsage = if (foregroundStartTime > 0 && packageName == currentForegroundPackage) {
+            val liveContinuous = if (foregroundStartTime > 0 && packageName == currentForegroundPackage) {
                 now - foregroundStartTime
             } else 0L
+            val statsContinuous = UsageUtils.getContinuousUsageTimeForApp(applicationContext, packageName)
+            val continuousUsage = maxOf(liveContinuous, statsContinuous)
             
-            if (continuousUsage > 5 * 60 * 1000L) { // 5 minutes continuous
+            if (continuousUsage >= 5 * 60 * 1000L) { // 5 minutes
                 shouldBlock = true
                 isUnconditional = true
-                blockReason = "Anti-Doom Scrolling active (5 min limit)."
+                blockReason = "Anti-Doom Scrolling limit reached (5 min continuous)."
             }
         }
         
-        val calBonus = Calendar.getInstance()
-        calBonus.set(Calendar.HOUR_OF_DAY, 0)
-        calBonus.set(Calendar.MINUTE, 0)
-        calBonus.set(Calendar.SECOND, 0)
-        calBonus.set(Calendar.MILLISECOND, 0)
-        
+        // 4. DAILY LIMIT (Standard App Lock)
+        val calBonus = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
         val bonusKey = "bonus_time_${packageName}_${calBonus.timeInMillis}"
         val bonusMillis = prefs.getLong(bonusKey, 0L)
         val limitMillis = trackedApp.dailyLimitMinutes * 60 * 1000L
         val currentUsage = UsageUtils.getUsageTimeForApp(applicationContext, packageName)
         
-        if (!shouldBlock && currentUsage > (limitMillis + bonusMillis)) {
+        if (!shouldBlock && currentUsage >= (limitMillis + bonusMillis)) {
             shouldBlock = true
             isUnconditional = false
-            blockReason = "Daily limit reached."
+            blockReason = "Daily limit of ${trackedApp.dailyLimitMinutes}m reached."
         }
         
         if (shouldBlock) {
@@ -135,21 +192,25 @@ class BlockerAccessibilityService : AccessibilityService() {
             
             repository.incrementBlockOccurrence()
             
-            val intent = Intent(applicationContext, BlockActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-                putExtra("BLOCKED_APP", trackedApp.appName)
-                putExtra("PACKAGE_NAME", packageName)
-                putExtra("LIMIT_MINUTES", trackedApp.dailyLimitMinutes)
-                putExtra("IS_UNCONDITIONAL", isUnconditional)
-                if (blockReason.isNotEmpty()) {
-                    putExtra("BLOCK_REASON", blockReason)
-                }
+            try {
+                // Use System Alert Window service to reliably display the overlay activity
+                SystemAlertWindowService.showBlockOverlay(
+                    context = applicationContext,
+                    appName = trackedApp.appName,
+                    packageName = packageName,
+                    limitMinutes = trackedApp.dailyLimitMinutes,
+                    isUnconditional = isUnconditional,
+                    blockReason = blockReason.ifEmpty { null }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to display block overlay, falling back to home screen", e)
+                performGlobalAction(GLOBAL_ACTION_HOME)
             }
-            startActivity(intent)
         }
     }
 
     override fun onInterrupt() {
+        Log.w(TAG, "BlockerAccessibilityService interrupted")
     }
 
     override fun onDestroy() {

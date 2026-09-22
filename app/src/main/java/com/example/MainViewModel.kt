@@ -17,6 +17,8 @@ import com.example.data.DailyStat
 import com.example.data.UnlockEvent
 import java.util.Calendar
 import com.example.data.TrackedApp
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -126,12 +128,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            allTrackedApps.collect { apps ->
+            allTrackedApps.collectLatest { apps ->
                 while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                    if (apps.isEmpty()) break
+                    if (apps.isEmpty()) {
+                        kotlinx.coroutines.delay(2000)
+                        continue
+                    }
                     apps.forEach { app ->
                         val usage = com.example.utils.UsageUtils.getUsageTimeForApp(application, app.packageName)
-                        if (appUsages[app.packageName] != usage) {
+                        withContext(kotlinx.coroutines.Dispatchers.Main) {
                             appUsages[app.packageName] = usage
                         }
                     }

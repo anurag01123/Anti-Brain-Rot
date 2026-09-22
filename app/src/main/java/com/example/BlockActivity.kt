@@ -45,21 +45,64 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import java.util.Calendar
 
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 
 class BlockActivity : ComponentActivity() {
+    private var blockedAppNameState = mutableStateOf("Target App")
+    private var blockReasonState = mutableStateOf<String?>(null)
+    private var packageNameState = mutableStateOf("")
+    private var limitMinutesState = mutableIntStateOf(0)
+    private var isUnconditionalState = mutableStateOf(false)
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        blockedAppNameState.value = intent.getStringExtra("BLOCKED_APP") ?: "Target App"
+        blockReasonState.value = intent.getStringExtra("BLOCK_REASON")
+        packageNameState.value = intent.getStringExtra("PACKAGE_NAME") ?: ""
+        limitMinutesState.intValue = intent.getIntExtra("LIMIT_MINUTES", 0)
+        isUnconditionalState.value = intent.getBooleanExtra("IS_UNCONDITIONAL", false)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+        SystemAlertWindowService.onActivityDisplayed(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SystemAlertWindowService.onActivityDisplayed(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SystemAlertWindowService.onActivityDisplayed(this)
         
-        val blockedAppName = intent.getStringExtra("BLOCKED_APP") ?: "Target App"
-        val blockReason = intent.getStringExtra("BLOCK_REASON")
-        val packageName = intent.getStringExtra("PACKAGE_NAME") ?: ""
-        val limitMinutes = intent.getIntExtra("LIMIT_MINUTES", 0)
-        val isUnconditional = intent.getBooleanExtra("IS_UNCONDITIONAL", false)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        handleIncomingIntent(intent)
+        
         val db = AppDatabase.getDatabase(applicationContext)
         val repository = AppRepository(db.appDao())
         
         setContent {
+            val blockedAppName = blockedAppNameState.value
+            val blockReason = blockReasonState.value
+            val packageName = packageNameState.value
+            val limitMinutes = limitMinutesState.intValue
+            val isUnconditional = isUnconditionalState.value
             val prefs = applicationContext.getSharedPreferences("block_settings", android.content.Context.MODE_PRIVATE)
                 val isDarkMode = prefs.getBoolean("dark_mode", false)
                 MyApplicationTheme(darkTheme = isDarkMode) {
@@ -78,6 +121,7 @@ class BlockActivity : ComponentActivity() {
                 }
                 
                 BackHandler(enabled = true) {
+                    SystemAlertWindowService.hideBlockOverlay(context)
                     val homeIntent = Intent(Intent.ACTION_MAIN)
                     homeIntent.addCategory(Intent.CATEGORY_HOME)
                     homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -361,6 +405,7 @@ class BlockActivity : ComponentActivity() {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Button(
                                     onClick = {
+                                        SystemAlertWindowService.hideBlockOverlay(context)
                                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                             repository.incrementUrgeInterrupted()
                                         }
@@ -378,7 +423,8 @@ class BlockActivity : ComponentActivity() {
                                 
                                 Button(
                                     onClick = {
-                                         val bonusKey = "bonus_time_${packageName}_${startOfDay}"
+                                        SystemAlertWindowService.hideBlockOverlay(context)
+                                        val bonusKey = "bonus_time_${packageName}_${startOfDay}"
                                         val currentBonus = prefs.getLong(bonusKey, 0L)
                                         val additionalBonus = limitMinutes * 60 * 1000L
                                         prefs.edit().putLong(bonusKey, currentBonus + additionalBonus).apply()
@@ -411,6 +457,7 @@ class BlockActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(32.dp))
                                 Button(
                                     onClick = {
+                                        SystemAlertWindowService.hideBlockOverlay(context)
                                         val homeIntent = Intent(Intent.ACTION_MAIN)
                                         homeIntent.addCategory(Intent.CATEGORY_HOME)
                                         homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK

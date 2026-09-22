@@ -10,6 +10,7 @@ import androidx.compose.animation.animateColorAsState
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
@@ -43,6 +44,12 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.material.icons.rounded.Star
+import com.example.ui.UsageDataVisualizationScreen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -143,8 +150,8 @@ fun MainScreen(
     onCheckAccessibility: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Apps to Block", "Penalty Contacts", "Insights")
-    val icons = listOf(Icons.Rounded.Lock, Icons.Rounded.Call, Icons.Rounded.DateRange)
+    val tabs = listOf("Apps to Block", "Penalty Contacts", "Usage Charts", "Insights")
+    val icons = listOf(Icons.Rounded.Lock, Icons.Rounded.Call, Icons.Rounded.BarChart, Icons.Rounded.DateRange)
     val hazeState = remember { dev.chrisbanes.haze.HazeState() }
 
     Scaffold(
@@ -307,9 +314,10 @@ and productive""",
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             when (selectedTab) {
-                0 -> TrackedAppsScreen(viewModel)
+                0 -> TrackedAppsScreen(viewModel, onNavigateToCharts = { selectedTab = 2 })
                 1 -> ContactsScreen(viewModel)
-                2 -> AnalyticsScreen(viewModel)
+                2 -> UsageDataVisualizationScreen(viewModel, hazeState)
+                3 -> AnalyticsScreen(viewModel)
             }
         }
     }
@@ -479,7 +487,7 @@ fun AnalyticsScreen(viewModel: MainViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackedAppsScreen(viewModel: MainViewModel) {
+fun TrackedAppsScreen(viewModel: MainViewModel, onNavigateToCharts: (() -> Unit)? = null) {
     val trackedApps by viewModel.allTrackedApps.collectAsStateWithLifecycle()
     val appUsages = viewModel.appUsages
     val installedApps by viewModel.installedApps.collectAsStateWithLifecycle()
@@ -489,43 +497,134 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
     Scaffold() { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             
-            // Warning if Usage Stats permission is not granted
-            var hasPermission by remember { mutableStateOf(UsageUtils.hasUsageStatsPermission(context)) }
-            
-            // Recheck permission when returning to this screen
+            var hasUsageAccess by remember { mutableStateOf(UsageUtils.hasUsageStatsPermission(context)) }
+            var hasAccessibility by remember { mutableStateOf(UsageUtils.isAccessibilityServiceEnabled(context)) }
+            var hasOverlay by remember { mutableStateOf(UsageUtils.hasOverlayPermission(context)) }
+
             val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
             androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
                 val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                     if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                        hasPermission = UsageUtils.hasUsageStatsPermission(context)
+                        hasUsageAccess = UsageUtils.hasUsageStatsPermission(context)
+                        hasAccessibility = UsageUtils.isAccessibilityServiceEnabled(context)
+                        hasOverlay = UsageUtils.hasOverlayPermission(context)
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
-            AnimatedVisibility(visible = !hasPermission) {
+            val allEnginesActive = hasUsageAccess && hasAccessibility && hasOverlay
+
+            if (!allEnginesActive) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(androidx.compose.material.icons.Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Usage Access Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Text("Blocker Engine Needs Setup", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("The app cannot track time because it does not have Usage Access. Tap to grant permission.", color = MaterialTheme.colorScheme.onErrorContainer)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("Grant Permission")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "To track usage and show lock screens on blocked apps, enable the following services:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (!hasAccessibility) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("1. Accessibility Blocker Service", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Detects when blocked apps are opened. Find 'AntiBrainRot' under Installed Apps and turn it ON.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Note: If Android says 'Restricted setting', go to App Info > 3 dots > Allow restricted settings first.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Button(
+                                        onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Enable Blocker Service", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
                         }
+
+                        if (!hasUsageAccess) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("2. Usage Access Permission", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Required to calculate app usage time accurately.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Button(
+                                        onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Grant Usage Access", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!hasOverlay) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("3. System Alert Window (Overlay)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Allows the System Alert Window service to reliably display the overlay activity over restricted apps when limits are exceeded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Button(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Allow System Alert Window", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Protection Shield Active • System Alert Window & Blocker Connected",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
                 }
             }
@@ -562,6 +661,16 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                                         }
                                     }
 
+                                    if (onNavigateToCharts != null) {
+                                        FilledTonalButton(
+                                            onClick = onNavigateToCharts,
+                                            shape = RoundedCornerShape(14.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.BarChart, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Usage Charts", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                                 
                                 // Simple Wave chart representation
@@ -611,7 +720,12 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                             ) {
                                 Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                                     Text("Set Anti-Doom\nScrolling", fontWeight = FontWeight.Bold, color = if (isAntiDoom) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface)
-                                    Text(if (isAntiDoom) "🛡️" else "🌸", fontSize = 48.sp, modifier = Modifier.align(Alignment.BottomStart))
+                                    Icon(
+                                        if (isAntiDoom) Icons.Rounded.Security else Icons.Rounded.Spa,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(44.dp).align(Alignment.BottomStart),
+                                        tint = if (isAntiDoom) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
+                                    )
                                     Surface(
                                         color = (if (isAntiDoom) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface).copy(alpha = 0.2f),
                                         shape = RoundedCornerShape(12.dp),
@@ -629,8 +743,13 @@ fun TrackedAppsScreen(viewModel: MainViewModel) {
                                 onClick = { viewModel.setGlobalBlock(!isGlobalBlock) }
                             ) {
                                 Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                                    Text("Block All Apps\nNow", fontWeight = FontWeight.Bold, color = if (isGlobalBlock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                                    Text(if (isGlobalBlock) "🛑" else "🌟", fontSize = 48.sp, modifier = Modifier.align(Alignment.BottomStart))
+                                    Text("Block Listed\nApps Now", fontWeight = FontWeight.Bold, color = if (isGlobalBlock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                                    Icon(
+                                        if (isGlobalBlock) Icons.Rounded.Block else Icons.Rounded.Star,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(44.dp).align(Alignment.BottomStart),
+                                        tint = if (isGlobalBlock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    )
                                     IconButton(
                                         onClick = { viewModel.setGlobalBlock(!isGlobalBlock) },
                                         modifier = Modifier.align(Alignment.BottomEnd).background(if (isGlobalBlock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape).size(36.dp)
