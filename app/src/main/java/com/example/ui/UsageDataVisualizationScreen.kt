@@ -1,13 +1,10 @@
 package com.example.ui
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -33,7 +31,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.MainViewModel
 import com.example.data.TrackedApp
@@ -41,8 +38,6 @@ import com.example.ui.components.GlassSurface
 import com.example.ui.utils.Haptics
 import com.example.ui.utils.MotionTokens
 import dev.chrisbanes.haze.HazeState
-import org.json.JSONArray
-import org.json.JSONObject
 
 enum class UsageFilter {
     ALL, APPROACHING, EXCEEDED, SAFE
@@ -293,8 +288,8 @@ fun UsageDataVisualizationScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Embedded Recharts WebView Component
-                    RechartsWebViewComponent(
+                    // Native Jetpack Compose Bar Chart Component
+                    NativeUsageBarChartComponent(
                         items = items,
                         isDarkMode = isDarkMode,
                         onAppSelected = { pkg ->
@@ -476,98 +471,209 @@ fun UsageDataVisualizationScreen(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun RechartsWebViewComponent(
+fun NativeUsageBarChartComponent(
     items: List<AppUsageItem>,
     isDarkMode: Boolean,
     onAppSelected: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val cardBackground = if (isDarkMode) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+    val borderColor = if (isDarkMode) Color(0xFF1E293B) else Color(0xFFE2E8F0)
 
-    // Convert items into JSON array for Recharts
-    val jsonData = remember(items) {
-        val array = JSONArray()
-        items.forEach { item ->
-            val obj = JSONObject().apply {
-                put("packageName", item.app.packageName)
-                put("appName", item.app.appName)
-                put("usedMinutes", item.usedMinutes)
-                put("limitMinutes", item.effectiveLimitMinutes)
-                put("percentage", Math.round(item.percentage))
-            }
-            array.put(obj)
-        }
-        array.toString()
-    }
-
-    // Push update to Recharts whenever data or theme changes
-    LaunchedEffect(jsonData, isDarkMode) {
-        webViewRef?.evaluateJavascript(
-            "if (window.updateUsageData) { window.updateUsageData(${JSONObject.quote(jsonData)}, $isDarkMode); }",
-            null
-        )
-    }
-
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(310.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (isDarkMode) Color(0xFF0F172A) else Color(0xFFF8FAFC))
-            .border(
-                1.dp,
-                if (isDarkMode) Color(0xFF1E293B) else Color(0xFFE2E8F0),
-                RoundedCornerShape(16.dp)
-            )
+            .clip(RoundedCornerShape(20.dp))
+            .background(cardBackground)
+            .border(1.dp, borderColor, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.allowFileAccess = true
-                    setBackgroundColor(0)
+        // Legend Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LegendItem(color = Color(0xFF10B981), label = "Safe (<75%)")
+            LegendItem(color = Color(0xFFF59E0B), label = "Warning (75-100%)")
+            LegendItem(color = Color(0xFFEF4444), label = "Exceeded")
+        }
 
-                    addJavascriptInterface(object {
-                        @JavascriptInterface
-                        fun onAppSelected(pkg: String) {
-                            onAppSelected(pkg)
+        HorizontalDivider(
+            color = borderColor.copy(alpha = 0.6f),
+            thickness = 1.dp
+        )
+
+        if (items.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No tracked apps yet. Add apps above to monitor limits.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            items.forEach { item ->
+                val progressFraction = (item.usedMinutes.toFloat() / item.effectiveLimitMinutes.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+                val animatedProgress by animateFloatAsState(
+                    targetValue = progressFraction,
+                    animationSpec = MotionTokens.emphasis(),
+                    label = "chartProgress_${item.app.packageName}"
+                )
+
+                val barBrush = when {
+                    item.isExceeded -> Brush.horizontalGradient(
+                        listOf(Color(0xFFEF4444), Color(0xFFF43F5E))
+                    )
+                    item.isApproaching -> Brush.horizontalGradient(
+                        listOf(Color(0xFFF59E0B), Color(0xFFFBBF24))
+                    )
+                    else -> Brush.horizontalGradient(
+                        listOf(Color(0xFF10B981), Color(0xFF34D399))
+                    )
+                }
+
+                val statusBadgeColor = when {
+                    item.isExceeded -> Color(0xFFEF4444)
+                    item.isApproaching -> Color(0xFFF59E0B)
+                    else -> Color(0xFF10B981)
+                }
+
+                Surface(
+                    onClick = { onAppSelected(item.app.packageName) },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isDarkMode) Color(0xFF1E293B).copy(alpha = 0.5f) else Color.White,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isDarkMode) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Title row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(statusBadgeColor.copy(alpha = 0.15f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = item.app.appName.take(1).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = statusBadgeColor
+                                    )
+                                }
+                                Text(
+                                    text = item.app.appName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Percentage tag
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = statusBadgeColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = "${Math.round(item.percentage)}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = statusBadgeColor,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
                         }
 
-                        @JavascriptInterface
-                        fun getInitialData(): String {
-                            return jsonData
+                        // Bar gauge
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    if (isDarkMode) Color(0xFF334155).copy(alpha = 0.6f)
+                                    else Color(0xFFE2E8F0)
+                                )
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(animatedProgress)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(barBrush)
+                            )
                         }
 
-                        @JavascriptInterface
-                        fun isDark(): Boolean {
-                            return isDarkMode
-                        }
-                    }, "AndroidBridge")
-
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            super.onPageFinished(view, url)
-                            view?.evaluateJavascript(
-                                "if (window.updateUsageData) { window.updateUsageData(${JSONObject.quote(jsonData)}, $isDarkMode); }",
-                                null
+                        // Subtitle info row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${item.usedMinutes}m used / ${item.effectiveLimitMinutes}m limit",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (item.isExceeded) {
+                                    "${item.overtimeMinutes}m over limit"
+                                } else {
+                                    "${item.remainingMinutes}m remaining"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = if (item.isExceeded) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-
-                    loadUrl("file:///android_asset/recharts_chart.html")
-                    webViewRef = this
                 }
-            },
-            update = { wv ->
-                wv.evaluateJavascript(
-                    "if (window.updateUsageData) { window.updateUsageData(${JSONObject.quote(jsonData)}, $isDarkMode); }",
-                    null
-                )
             }
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, CircleShape)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 11.sp
         )
     }
 }
